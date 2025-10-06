@@ -4,14 +4,14 @@ on:
   repository_dispatch:
   workflow_dispatch:
     inputs:
-      runner_image:
+      runnerImage:
         description: "Runner Image"
         type: string
         required: false
         default: "ubuntu-latest"
   workflow_call:
     inputs:
-      runner_image:
+      runnerImage:
         description: "Runner Image"
         required: false
         type: string
@@ -22,7 +22,7 @@ run-name: Clean up Snap
 jobs:
   build:
     name: Clean up Snap
-    runs-on: ${{ inputs.runner_image || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.runnerImage || 'ubuntu-latest' }}
     steps:
       - name: (Purge) Snap
         id: purge-snap
