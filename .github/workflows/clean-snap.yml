@@ -15,7 +15,7 @@ on:
         description: "Runner Image"
         required: false
         type: string
-  push:
+  # push:
 
 run-name: Clean up Snap
 
