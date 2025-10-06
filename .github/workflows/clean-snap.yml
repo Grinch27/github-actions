@@ -1,0 +1,58 @@
+name: Clean up Snap
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+    inputs:
+      runner_image:
+        description: "Runner Image"
+        type: string
+        required: false
+        default: "ubuntu-latest"
+  workflow_call:
+    inputs:
+      runner_image:
+        description: "Runner Image"
+        required: false
+        type: string
+
+run-name: Clean up Snap
+
+jobs:
+  build:
+    name: Clean up Snap
+    runs-on: ${{ inputs.runner_image || 'ubuntu-latest' }}
+    steps:
+      - name: (Purge) Snap
+        id: purge-snap
+        working-directory: /
+        run: |
+          echo -e "Current working directory: $(pwd)"
+          df -Th
+          sudo -E apt-get -yqq update
+          package_installed=$(dpkg-query -W -f='${binary:Package}\n')
+
+          sudo snap list
+          # ===== Remove snap =====
+          for p in $(snap list | awk '{print $1}'); do
+            sudo snap remove $p
+          done
+          sudo systemctl stop snapd
+          sudo systemctl disable --now snapd.socket
+          sudo apt-get -yqq autoremove --purge snapd
+          sudo rm -rf ~/snap
+          sudo rm -rf /snap
+          sudo rm -rf /var/snap
+          sudo rm -rf /var/lib/snapd
+          sudo rm -rf /var/cache/snapd
+          sudo bash -c 'cat <<EOF > /etc/apt/preferences.d/nosnap.pref
+          Package: snapd
+          Pin: release a=*
+          Pin-Priority: -10
+          EOF'
+
+          # ========== reload ==========
+          sudo -E apt-get -yqq autoremove --purge
+          sudo -E apt-get -qq clean
+          sudo -E systemctl daemon-reload
+          df -Th
