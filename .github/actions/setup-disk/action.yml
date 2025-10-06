@@ -1,6 +1,6 @@
-name: Clean Disk
+name: Setup Disk
 
-description: Clean Disk
+description: Setup Disk
 
 author: "Grinch27"
 
@@ -20,7 +20,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Clean Disk
+    - name: Setup Disk
       shell: bash
       working-directory: /
       env:
