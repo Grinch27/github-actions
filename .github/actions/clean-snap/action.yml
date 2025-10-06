@@ -9,6 +9,7 @@ runs:
   steps:
     - name: Purge Snap
       shell: bash
+      working-directory: /
       run: |
         echo -e "Current working directory: $(pwd)"
         df -Th
