@@ -1,15 +1,18 @@
 name: Clean Snap Packages
+
 description: Purge snapd and related data from the runner
+
 author: "Grinch27"
+
 runs:
   using: composite
   steps:
     - name: Purge Snap
       shell: bash
       run: |
-        echo -e "Runner image hint: ${{ inputs.runnerImage || 'not provided' }}"
         echo -e "Current working directory: $(pwd)"
         df -Th
+
         sudo -E apt-get -yqq update
         package_installed=$(dpkg-query -W -f='${binary:Package}\n')
 
@@ -28,6 +31,7 @@ runs:
         sudo rm -rf /var/snap
         sudo rm -rf /var/lib/snapd
         sudo rm -rf /var/cache/snapd
+
         sudo bash -c 'cat <<EOF > /etc/apt/preferences.d/nosnap.pref
         Package: snapd
         Pin: release a=*
@@ -38,6 +42,3 @@ runs:
         sudo -E apt-get -qq clean
         sudo -E systemctl daemon-reload
         df -Th
-branding:
-  icon: package
-  color: yellow
