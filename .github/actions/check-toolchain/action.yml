@@ -1,0 +1,29 @@
+name: Check Toolchain
+
+description: Check Toolchain
+
+author: "Grinch27"
+
+runs:
+  using: composite
+  steps:
+    - name: Check Toolchain
+      shell: bash
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        df -Th
+
+        echo -e "---------- List all environment variables ----------"
+        printenv
+
+        echo -e "---------- List all installed packages ----------"
+        apt list --installed
+        dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -n
+
+        echo -e "---------- Verify Make version ----------"
+        make --version
+
+        echo -e "---------- Verify GCC version ----------"
+        gcc --version
+        g++ --version
