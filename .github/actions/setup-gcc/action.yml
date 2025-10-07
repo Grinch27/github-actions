@@ -1,0 +1,46 @@
+name: Setup GCC
+
+description: Setup GCC
+
+author: "Grinch27"
+
+inputs:
+  gcc_version:
+    description: "GCC version"
+    required: false
+    default: "14"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup GCC
+      shell: bash
+      working-directory: /
+      env:
+        gcc_version: ${{ inputs.gcc_version }}
+      run: |
+        echo "Installing packages for GCC version ${gcc_version}"
+
+        packages_install=(
+          # ----- gcc -----
+          "gcc-${gcc_version}"
+          "libgcc-${gcc_version}-dev"
+          "gcc-${gcc_version}-multilib"
+          # ----- g++ -----
+          "g++-${gcc_version}"
+          "libstdc++-${gcc_version}-dev"
+          "g++-${gcc_version}-multilib"
+          # ----- cpp -----
+          "cpp-${gcc_version}"
+          # ----- gfortran -----
+          "gfortran-${gcc_version}"
+          "libgfortran-${gcc_version}-dev"
+        )
+        echo "Packages to be installed: ${packages_install[@]}"
+        sudo -E apt-get -yqq install "${packages_install[@]}"
+
+        # ========== reload ==========
+        sudo -E apt-get -yqq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo -E systemctl daemon-reload
+        df -Th
