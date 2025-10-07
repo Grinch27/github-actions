@@ -1,0 +1,57 @@
+name: Switch Clang
+
+description: Switch Clang
+
+author: "Grinch27"
+
+inputs:
+  clang_version:
+    description: "Version"
+    required: false
+    default: "19"
+
+runs:
+  using: composite
+  steps:
+    - name: Switch Clang
+      shell: bash
+      working-directory: /
+      env:
+        clang_version: ${{ inputs.clang_version }}
+      run: |
+        ls /usr/bin/clang-* /usr/bin/clang-format-* /usr/bin/clang-tidy-* || true
+
+        tools_clang=(
+          "clang"
+          "clang-format"
+          "clang-tidy"
+          "clangd"
+          # "lld"
+          # "lldb"
+        )
+        for tool in "${tools_clang[@]}"; do
+          versions=$(ls /usr/bin/${tool}-* 2>/dev/null | grep -Eo '[0-9]+$' | sort -u || true)
+          for version in ${versions}; do
+            sudo update-alternatives --install /usr/bin/${tool} ${tool} /usr/bin/${tool}-${version} ${version}
+          done
+        done
+
+        sudo update-alternatives --query clang    || true
+        sudo update-alternatives --query clang-format || true
+        sudo update-alternatives --query clang-tidy   || true
+
+        for tool in "${tools_clang[@]}"; do
+          sudo update-alternatives --set ${tool} /usr/bin/${tool}-${clang_version} || true
+        done
+
+        # ========== reload ==========
+        sudo -E apt-get -yqq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo -E systemctl daemon-reload
+        df -Th
+
+        # Verify
+        clang --version || true
+        clang-format --version || true
+        clang-tidy --version || true
+        echo "Switched to Clang version ${clang_version}"
