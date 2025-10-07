@@ -1,0 +1,37 @@
+name: Setup Clang
+
+description: Setup Clang
+
+author: "Grinch27"
+
+inputs:
+  clang_version:
+    description: "Version"
+    required: false
+    default: "19"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Clang
+      shell: bash
+      working-directory: /
+      env:
+        clang_version: ${{ inputs.clang_version }}
+      run: |
+        packages_install=(
+          "clang-${clang_version}"
+          "clang-format-${clang_version}"
+          "clang-tidy-${clang_version}"
+          "clangd-${clang_version}"
+          # "lld-${clang_version}"
+          # "lldb-${clang_version}"
+        )
+        echo "Packages to be installed: ${packages_install[@]}"
+        sudo -E apt-get -yqq install "${packages_install[@]}"
+
+        # ========== reload ==========
+        sudo -E apt-get -yqq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo -E systemctl daemon-reload
+        df -Th
