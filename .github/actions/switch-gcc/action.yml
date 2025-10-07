@@ -1,0 +1,60 @@
+name: Switch GCC
+
+description: Switch GCC
+
+author: "Grinch27"
+
+inputs:
+  gcc_version:
+    description: "GCC version to switch to (e.g., 7, 8, 9, 10, 11, 12, 13, 14)"
+    required: false
+    default: "14"
+
+runs:
+  using: composite
+  steps:
+    - name: Switch GCC
+      shell: bash
+      working-directory: /
+      env:
+        gcc_version: ${{ inputs.gcc_version }}
+      run: |
+        echo "Setting alternatives for GCC version ${gcc_version}"
+
+        ls /usr/bin/gcc-* /usr/bin/g++-*
+
+        tools_gcc=(
+          "gcc"
+          "gcc-ar"
+          "gcc-nm"
+          "gcc-ranlib"
+          "g++"
+        )
+
+        # 安装可用的版本到 alternatives
+        for tool in "${tools_gcc[@]}"; do
+          versions=$(ls /usr/bin/${tool}-* | grep -Eo '[0-9]+$' | sort -u)
+          for ver in ${versions}; do
+            sudo update-alternatives --install /usr/bin/${tool} ${tool} /usr/bin/${tool}-${ver} ${ver}
+          done
+        done
+
+        # 查看配置
+        sudo update-alternatives --query gcc
+        sudo update-alternatives --query g++
+
+        # 切换到指定版本
+        for tool in "${tools_gcc[@]}"; do
+          sudo update-alternatives --set ${tool} /usr/bin/${tool}-${gcc_version}
+        done
+
+        # ========== reload ==========
+        sudo -E apt-get -yqq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo -E systemctl daemon-reload
+        df -Th
+
+        # 验证
+        gcc --version
+        g++ --version
+        echo "Switched to GCC/G++ version: ${gcc_version}"
