@@ -1,13 +1,13 @@
-name: Clean JDK
+name: Purge JDK
 
-description: Clean JDK
+description: Purge JDK
 
 author: "Grinch27"
 
 runs:
   using: composite
   steps:
-    - name: Clean JDK
+    - name: Purge JDK
       shell: bash
       working-directory: /
       run: |
