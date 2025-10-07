@@ -1,0 +1,51 @@
+name: Purge Clang
+
+description: Purge Clang
+
+author: "Grinch27"
+
+runs:
+  using: composite
+  steps:
+    - name: Purge Clang
+      shell: bash
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        df -Th
+        sudo -E apt-get -yqq update
+        package_installed=$(dpkg-query -W -f='${binary:Package}\n')
+
+        regexes=(
+          "clang-[0-9]+.*"
+          "clang-format-[0-9]+.*"
+          "clang-tidy-[0-9]+.*"
+          "clangd-[0-9]+.*"
+          # "lld-[0-9]+.*"
+          # "lldb-[0-9]+.*"
+        )
+        packages_purge=()
+        for regex in "${regexes[@]}"; do
+          for package in $package_installed; do
+            if [[ $package =~ $regex ]]; then
+              packages_purge+=("$package")
+            fi
+          done
+        done
+        echo "Packages to be purged: ${packages_purge[@]}"
+
+        set +e
+        for package in "${packages_purge[@]}"; do
+          echo "Attempting to remove $package"
+          sudo -E apt-get -yqq autoremove --purge "$package"
+          if [[ $? -ne 0 ]]; then
+            echo "Failed to remove $package"
+          fi
+        done
+        set -e
+
+        # ========== reload ==========
+        sudo -E apt-get -yqq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo -E systemctl daemon-reload
+        df -Th
