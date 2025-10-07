@@ -1,4 +1,4 @@
-name: Clean Snap Packages
+name: Purge Snap
 
 description: Purge snapd and related data from the runner
 
