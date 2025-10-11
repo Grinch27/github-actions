@@ -12,18 +12,20 @@ inputs:
   gcc_toggle:
     description: "Toggle for GCC"
     required: false
-    default: "backports"
+    default: "ppa"
 
 runs:
   using: composite
   steps:
-    - name: (Toggle) Ubuntu backports for GCC
-      if: ${{ inputs.gcc_toggle == 'backports' }}
+    - name: (Toggle) Ubuntu devel for GCC
+      if: ${{ inputs.gcc_toggle == 'devel' }}
       shell: bash
       working-directory: /
       run: |
-        codename="$(lsb_release -cs)"
-        echo "deb http://archive.ubuntu.com/ubuntu/ ${codename}-backports main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/backports.list
+        # sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ devel main restricted universe multiverse" || true
+        # sudo apt update
+
+        echo "deb http://archive.ubuntu.com/ubuntu/ devel main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/devel.list
         sudo -E apt-get -yqq update
 
     - name: (Toggle) PPA for GCC
@@ -68,12 +70,12 @@ runs:
         sudo -E systemctl daemon-reload
         df -Th
 
-    - name: (Remove) Ubuntu backports for GCC
-      if: ${{ inputs.gcc_toggle == 'backports' }}
+    - name: (Remove) Ubuntu devel for GCC
+      if: ${{ inputs.gcc_toggle == 'devel' }}
       shell: bash
       working-directory: /
       run: |
-        sudo rm -f /etc/apt/sources.list.d/backports.list
+        sudo rm /etc/apt/sources.list.d/devel.list
         sudo -E apt-get -yqq update
 
     - name: (Remove) PPA for GCC
