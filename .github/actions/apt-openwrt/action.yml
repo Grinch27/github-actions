@@ -90,7 +90,6 @@ runs:
           "xsltproc"
           "zip"
           "zlib1g-dev"
-          # "usign"
         )
         sudo -E apt-get -yqq install "${packages_install[@]}"
 
