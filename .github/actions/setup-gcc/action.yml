@@ -9,21 +9,34 @@ inputs:
     description: "GCC version"
     required: false
     default: "14"
+  gcc_ppa:
+    description: "Add PPA"
+    required: false
+    default: "false"
 
 runs:
   using: composite
   steps:
+    - name: (Toggle) PPA for GCC
+      if: ${{ inputs.gcc_ppa == 'true' }}
+      shell: bash
+      working-directory: /
+      run: |
+        echo "Current working directory: $(pwd)"
+        df -Th
+
+        # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/ppa
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/ppa
+        sudo apt update
+
     - name: Setup GCC
       shell: bash
       working-directory: /
       env:
         gcc_version: ${{ inputs.gcc_version }}
       run: |
-        echo "Installing packages for GCC version ${gcc_version}"
-
-        # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/ppa
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/ppa
-        sudo apt update
+        echo "Current working directory: $(pwd)"
+        df -Th
 
         packages_install=(
           # ----- gcc -----
