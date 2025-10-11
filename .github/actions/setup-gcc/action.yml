@@ -13,6 +13,10 @@ inputs:
     description: "Add PPA"
     required: false
     default: "true"
+  ppa_repo:
+    description: "PPA repository"
+    required: false
+    default: "ppa:ubuntu-toolchain-r/ppa"
 
 runs:
   using: composite
@@ -26,7 +30,7 @@ runs:
         df -Th
 
         # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/ppa
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/ppa
+        sudo add-apt-repository -y ${{ inputs.ppa_repo }} || true
         sudo apt update
 
     - name: Setup GCC
@@ -61,3 +65,11 @@ runs:
         sudo -E apt-get -qq clean
         sudo -E systemctl daemon-reload
         df -Th
+
+    - name: (Toggle) PPA for GCC
+      if: ${{ inputs.gcc_ppa == 'true' }}
+      shell: bash
+      working-directory: /
+      run: |
+        sudo add-apt-repository --remove ${{ inputs.ppa_repo }} || true
+        sudo apt update
