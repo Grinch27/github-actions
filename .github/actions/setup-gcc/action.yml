@@ -21,6 +21,10 @@ runs:
       run: |
         echo "Installing packages for GCC version ${gcc_version}"
 
+        # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/ppa
+        # sudo add-apt-repository ppa:ubuntu-toolchain-r/ppa
+        # sudo apt update
+
         packages_install=(
           # ----- gcc -----
           "gcc-${gcc_version}"
