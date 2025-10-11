@@ -9,10 +9,14 @@ inputs:
     description: "GCC version"
     required: false
     default: "14"
-  gcc_ppa:
-    description: "Add PPA"
+  gcc_toggle:
+    description: "Toggle for GCC"
     required: false
-    default: "true"
+    default: "devel"
+  devel_repo:
+    description: "Ubuntu devel repository"
+    required: false
+    default: "deb http://archive.ubuntu.com/ubuntu/ devel main restricted universe multiverse"
   ppa_repo:
     description: "PPA repository"
     required: false
@@ -21,14 +25,25 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: (Toggle) Ubuntu devel for GCC
+      if: ${{ inputs.gcc_toggle == 'devel' }}
+      shell: bash
+      working-directory: /
+      run: |
+        # sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ devel main restricted universe multiverse" || true
+        # sudo apt update
+
+        echo "${{ inputs.devel_repo }}" | sudo tee /etc/apt/sources.list.d/devel.list
+        sudo -E apt-get -yqq update
+
     - name: (Toggle) PPA for GCC
-      if: ${{ inputs.gcc_ppa == 'true' }}
+      if: ${{ inputs.gcc_toggle == 'ppa' }}
       shell: bash
       working-directory: /
       run: |
         # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/ppa
         sudo add-apt-repository -y ${{ inputs.ppa_repo }} || true
-        sudo apt update
+        sudo -E apt-get -yqq update
 
     - name: Setup GCC
       shell: bash
@@ -63,10 +78,18 @@ runs:
         sudo -E systemctl daemon-reload
         df -Th
 
-    - name: (Toggle) PPA for GCC
-      if: ${{ inputs.gcc_ppa == 'true' }}
+    - name: (Remove) Ubuntu devel for GCC
+      if: ${{ inputs.gcc_toggle == 'devel' }}
+      shell: bash
+      working-directory: /
+      run: |
+        sudo rm /etc/apt/sources.list.d/devel.list
+        sudo -E apt-get -yqq update
+
+    - name: (Remove) PPA for GCC
+      if: ${{ inputs.gcc_toggle == 'ppa' }}
       shell: bash
       working-directory: /
       run: |
         sudo add-apt-repository --remove ${{ inputs.ppa_repo }} || true
-        sudo apt update
+        sudo -E apt-get -yqq update
