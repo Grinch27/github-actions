@@ -31,7 +31,7 @@ jobs:
     steps:
       - name: (Purge) Existing GCC
         id: purge-gcc
-        if: ${{ env.gcc_purge == 'true' }}
+        # if: ${{ env.gcc_purge == 'true' }}
         uses: Grinch27/github-actions/.github/actions/purge-gcc@main
 
       - name: (Setup) GCC - ${{ env.gcc_version }}
