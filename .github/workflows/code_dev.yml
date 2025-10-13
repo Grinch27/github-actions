@@ -1,7 +1,7 @@
 name: Code (Dev)
 
 # https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions
-run-name: Develop Code
+run-name: Testing Matrix
 
 on:
   repository_dispatch:
@@ -15,8 +15,8 @@ on:
       - ".github/actions/setup-gcc/**"
 
 jobs:
-  test:
-    name: Test of Code
+  job:
+    name: Testing Matrix
     runs-on: ${{ matrix.runner_image || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
@@ -25,13 +25,13 @@ jobs:
         gcc_toggle: ["ppa", "devel", "false"]
     env:
       gcc_version: "15"
+      gcc_purge: "false"
       gcc_install: "true"
       gcc_switch: "true"
-      gcc_purge: "true"
     steps:
       - name: (Purge) Existing GCC
         id: purge-gcc
-        # if: ${{ env.gcc_purge == 'true' }}
+        if: ${{ env.gcc_purge == 'true' }}
         uses: Grinch27/github-actions/.github/actions/purge-gcc@main
 
       - name: (Setup) GCC - ${{ env.gcc_version }}
