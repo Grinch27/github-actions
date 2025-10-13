@@ -28,6 +28,12 @@ runs:
         echo "deb http://archive.ubuntu.com/ubuntu/ devel main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/devel.list
         sudo -E apt-get -yqq update
 
+        if [ -L /lib32 ] && [ ! -e /lib32 ]; then
+          echo "Fixing dangling /lib32 symlink"
+          sudo rm /lib32
+          sudo mkdir -p /lib32
+        fi
+
     - name: (Toggle) PPA for GCC
       if: ${{ inputs.gcc_toggle == 'ppa' }}
       shell: bash
