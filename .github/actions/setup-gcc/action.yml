@@ -12,7 +12,7 @@ inputs:
   gcc_toggle:
     description: "Toggle for GCC"
     required: false
-    default: "false"
+    default: "devel"
 
 runs:
   using: composite
