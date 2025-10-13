@@ -28,6 +28,7 @@ runs:
         echo "deb http://archive.ubuntu.com/ubuntu/ devel main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/devel.list
         sudo -E apt-get -yqq update
 
+        # Fix for /lib32 directory issue on Ubuntu runners
         if [ -d /lib32 ] && [ ! -L /lib32 ]; then
           echo "Converting /lib32 directory into symlink -> /usr/lib32"
           sudo rm -rf /lib32
