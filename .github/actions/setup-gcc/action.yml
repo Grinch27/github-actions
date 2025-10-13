@@ -24,14 +24,15 @@ runs:
       shell: bash
       working-directory: /
       run: |
-        # sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ devel main restricted universe multiverse" || true
-        # sudo apt update
-
         echo "deb http://archive.ubuntu.com/ubuntu/ devel main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/devel.list
         sudo -E apt-get -yqq update
 
         # Fix /lib32 by enforcing merged-/usr symlink so dpkg accepts GCC packages
-        if [ -d /lib32 ] && [ ! -L /lib32 ]; then
+        sudo mkdir -p /usr/lib32
+        if [ -L /lib32 ] && [ ! -e /lib32 ]; then
+          echo "Repairing dangling /lib32 -> /usr/lib32 symlink"
+          sudo ln -sf /usr/lib32 /lib32
+        elif [ -d /lib32 ] && [ ! -L /lib32 ]; then
           echo "Converting /lib32 directory into symlink -> /usr/lib32"
           sudo rm -rf /lib32
           sudo ln -s /usr/lib32 /lib32
