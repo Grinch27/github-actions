@@ -37,6 +37,9 @@ jobs:
         id: setup-gcc
         if: ${{ env.gcc_install == 'true' }}
         uses: Grinch27/github-actions/.github/actions/setup-gcc@main
+        with:
+          gcc_version: ${{ env.gcc_version }}
+          gcc_toggle: "ppa"
 
       - name: (Switch) Installed GCC - ${{ env.gcc_version }}
         id: switch-gcc
