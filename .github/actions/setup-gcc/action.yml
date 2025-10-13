@@ -10,11 +10,11 @@ inputs:
   gcc_version:
     description: "GCC version"
     required: false
-    default: "15"
+    default: "14"
   gcc_toggle:
     description: "Toggle for GCC"
     required: false
-    default: "devel"
+    default: "default"
 
 runs:
   using: composite
