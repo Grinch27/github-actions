@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         runner_image: ["ubuntu-latest"]
-    envs:
+    env:
       gcc_version: "15"
       gcc_install: "true"
       gcc_switch: "true"
