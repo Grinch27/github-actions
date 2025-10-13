@@ -10,7 +10,7 @@ inputs:
   gcc_version:
     description: "GCC version"
     required: false
-    default: "14"
+    default: "15"
   gcc_toggle:
     description: "Toggle for GCC"
     required: false
