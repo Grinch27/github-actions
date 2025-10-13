@@ -1,5 +1,7 @@
 name: Setup GCC
 
+# https://docs.github.com/zh/actions/reference/workflows-and-actions/metadata-syntax#runs-for-composite-actions
+
 description: Setup GCC
 
 author: "Grinch27"
