@@ -1,0 +1,46 @@
+name: Code (Dev)
+
+# https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions
+run-name: Develop Code
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - ".github/workflows/code_dev.yml"
+      - ".github/actions/setup-gcc/**"
+
+jobs:
+  test:
+    name: Test of Code
+    runs-on: ${{ matrix.runner_image || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner_image: ["ubuntu-latest"]
+    envs:
+      gcc_version: "15"
+      gcc_install: "true"
+      gcc_switch: "true"
+      gcc_purge: "true"
+    steps:
+      - name: (Purge) Existing GCC
+        id: purge-gcc
+        if: ${{ env.gcc_purge == 'true' }}
+        uses: Grinch27/github-actions/.github/actions/purge-gcc@main
+
+      - name: (Setup) GCC - ${{ env.gcc_version }}
+        id: setup-gcc
+        if: ${{ env.gcc_install == 'true' }}
+        uses: Grinch27/github-actions/.github/actions/setup-gcc@main
+
+      - name: (Switch) Installed GCC - ${{ env.gcc_version }}
+        id: switch-gcc
+        if: ${{ env.gcc_switch == 'true' }}
+        uses: Grinch27/github-actions/.github/actions/switch-gcc@main
+        with:
+          gcc_version: ${{ env.gcc_version }}
