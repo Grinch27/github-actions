@@ -22,6 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         runner_image: ["ubuntu-latest"]
+        gcc_toggle: ["ppa", "devel", "false"]
     env:
       gcc_version: "15"
       gcc_install: "true"
@@ -39,7 +40,7 @@ jobs:
         uses: Grinch27/github-actions/.github/actions/setup-gcc@main
         with:
           gcc_version: ${{ env.gcc_version }}
-          gcc_toggle: "ppa"
+          gcc_toggle: ${{ matrix.gcc_toggle }}
 
       - name: (Switch) Installed GCC - ${{ env.gcc_version }}
         id: switch-gcc
