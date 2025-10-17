@@ -1,0 +1,188 @@
+name: Setup GCC
+
+# https://docs.github.com/zh/actions/reference/workflows-and-actions/metadata-syntax#runs-for-composite-actions
+
+description: Setup GCC
+
+author: "Grinch27"
+
+# # ----- gcc -----
+# gcc_purge: true
+# gcc_install: true
+# gcc_switch: true
+# gcc_version: 14
+# # ----- clang -----
+# clang_purge: true
+# clang_install: true
+# clang_switch: true
+# clang_version: 19
+# # ----- jdk -----
+# jdk_purge: true
+# jdk_install: true
+# jdk_switch: true
+# jdk_version: 21
+# # ----- docker -----
+# docker_install: false
+# qemu_install: false
+
+inputs:
+  # ----- gcc -----
+  gcc_purge:
+    description: "gcc_purge"
+    required: false
+    default: "false"
+  gcc_install:
+    description: "gcc_install"
+    required: false
+    default: "false"
+  gcc_switch:
+    description: "gcc_switch"
+    required: false
+    default: "false"
+  gcc_version:
+    description: "gcc_version"
+    required: false
+    default: "false"
+  gcc_aarch64:
+    description: "gcc_aarch64"
+    required: false
+    default: "false"
+  # ----- clang -----
+  clang_purge:
+    description: "clang_purge"
+    required: false
+    default: "false"
+  clang_install:
+    description: "clang_install"
+    required: false
+    default: "false"
+  clang_switch:
+    description: "clang_switch"
+    required: false
+    default: "false"
+  clang_version:
+    description: "clang_version"
+    required: false
+    default: "false"
+  # ----- jdk -----
+  jdk_purge:
+    description: "jdk_purge"
+    required: false
+    default: "false"
+  jdk_install:
+    description: "jdk_install"
+    required: false
+    default: "false"
+  jdk_switch:
+    description: "jdk_switch"
+    required: false
+    default: "false"
+  jdk_version:
+    description: "jdk_version"
+    required: false
+    default: "false"
+  # ----- docker -----
+  docker_install:
+    description: "docker_install"
+    required: false
+    default: "false"
+  qemu_install:
+    description: "qemu_install"
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    # ========== General Environment Setup: Start ==========
+    - name: (Purge) Snap
+      id: purge-snap
+      uses: Grinch27/github-actions/.github/actions/purge-snap@main
+
+    - name: (Clean) Docker Images
+      id: clean-docker
+      uses: Grinch27/github-actions/.github/actions/clean-docker_image@main
+
+    - name: (Clean) Runner
+      id: clean-runner
+      uses: Grinch27/github-actions/.github/actions/clean-runner@main
+
+    - name: (Purge) Existing GCC
+      id: purge-gcc
+      if: ${{ inputs.gcc_purge == 'true' }}
+      uses: Grinch27/github-actions/.github/actions/purge-gcc@main
+
+    - name: (Setup) GCC - ${{ inputs.gcc_version }}
+      id: setup-gcc
+      if: ${{ inputs.gcc_install == 'true' }}
+      uses: Grinch27/github-actions/.github/actions/setup-gcc@main
+
+    - name: (Switch) Installed GCC - ${{ inputs.gcc_version }}
+      id: switch-gcc
+      if: ${{ inputs.gcc_switch == 'true' }}
+      uses: Grinch27/github-actions/.github/actions/switch-gcc@main
+      with:
+        gcc_version: ${{ inputs.gcc_version }}
+
+    - name: (Purge) Existing Clang
+      id: purge-clang
+      if: ${{ inputs.clang_purge == 'true' }}
+      uses: Grinch27/github-actions/.github/actions/purge-clang@main
+
+    - name: (Setup) Clang - ${{ inputs.clang_version }}
+      id: setup-clang
+      if: ${{ inputs.clang_install == 'true' }}
+      uses: Grinch27/github-actions/.github/actions/setup-clang@main
+
+    - name: (Switch) Installed Clang - ${{ inputs.clang_version }}
+      id: switch-clang
+      if: ${{ inputs.clang_switch == 'true' }}
+      uses: Grinch27/github-actions/.github/actions/switch-clang@main
+      with:
+        clang_version: ${{ inputs.clang_version }}
+
+    - name: (Switch) AArch64 Cross-Compiler - ${{ inputs.gcc_version }}
+      id: switch-gcc_aarch64
+      if: ${{ inputs.gcc_aarch64 == 'true' }}
+      uses: Grinch27/github-actions/.github/actions/switch-gcc_aarch64@main
+      with:
+        gcc_version: ${{ inputs.gcc_version }}
+
+    - name: (Purge) JDK
+      id: purge-jdk
+      if: ${{ inputs.jdk_purge == 'true' }}
+      uses: Grinch27/github-actions/.github/actions/purge-jdk@main
+
+    - name: (Setup) JDK - ${{ inputs.jdk_version }}
+      id: setup-jdk
+      if: ${{ inputs.jdk_install == 'true' }}
+      uses: actions/setup-java@main
+      with:
+        distribution: "temurin"
+        java-version: ${{ inputs.jdk_version }}
+
+    - name: (Setup) Docker
+      id: setup-docker
+      if: ${{ inputs.docker_install == 'true' }}
+      uses: Grinch27/github-actions/.github/actions/setup-docker@main
+
+    - name: (Setup) QEMU
+      id: setup-qemu
+      if: ${{ inputs.qemu_install == 'true' }}
+      uses: docker/setup-qemu-action@master
+      # with:
+      #   platforms: ${{ inputs.arch_branch }}
+
+    # - name: (Setup) disk workspace
+    #   id: disk
+    #   uses: Grinch27/github-actions/.github/actions/setup-disk@main
+    #   with:
+    #     path_build: ${{ inputs.path_build }}
+    #     root_num: 4
+    #     mnt_num: 1
+
+    - name: (Check) toolchain
+      id: check-toolchain
+      uses: Grinch27/github-actions/.github/actions/check-toolchain@main
+
+    # ========== General Environment Setup: End ==========
