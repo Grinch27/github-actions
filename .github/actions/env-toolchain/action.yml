@@ -1,8 +1,8 @@
-name: Setup GCC
+name: Environment for toolchain
 
 # https://docs.github.com/zh/actions/reference/workflows-and-actions/metadata-syntax#runs-for-composite-actions
 
-description: Setup GCC
+description: Environment for toolchain
 
 author: "Grinch27"
 
@@ -172,14 +172,6 @@ runs:
       uses: docker/setup-qemu-action@master
       # with:
       #   platforms: ${{ inputs.arch_branch }}
-
-    # - name: (Setup) disk workspace
-    #   id: disk
-    #   uses: Grinch27/github-actions/.github/actions/setup-disk@main
-    #   with:
-    #     path_build: ${{ inputs.path_build }}
-    #     root_num: 4
-    #     mnt_num: 1
 
     - name: (Check) toolchain
       id: check-toolchain
