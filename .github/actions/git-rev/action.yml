@@ -1,0 +1,57 @@
+name: Git Revision Info
+
+# https://docs.github.com/zh/actions/reference/workflows-and-actions/metadata-syntax#runs-for-composite-actions
+
+description: Git Revision Info
+
+author: "Grinch27"
+
+inputs:
+  path_target:
+    description: "Path to the git repository"
+    required: false
+    default: "."
+
+# outputs:
+#   random-number:
+#     description: "Random number"
+#     value: ${{ steps.random-number-generator.outputs.random-id }}
+
+runs:
+  using: composite
+  steps:
+    - name: (Git) Git Revision Info
+      id: git-rev
+      shell: bash
+      working-directory: ${{ inputs.path_target }}
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        set -x
+
+        # ----- git describe --all --long -> refs/heads/master-0-gf5b6b6d -----
+        gitlocal_describe=$(git describe --all --long | cut -d'/' -f2-)
+        echo "gitlocal_describe=${gitlocal_describe}"
+
+        # ----- branch: git rev-parse --abbrev-ref HEAD -> master -----
+        gitlocal_branch=$(git rev-parse --abbrev-ref HEAD)
+        echo "gitlocal_branch=${gitlocal_branch}"
+
+        # ----- short hash: git rev-parse --short HEAD -> f5b6b6d -----
+        gitlocal_short=$(git rev-parse --short HEAD)
+        echo "gitlocal_short=${gitlocal_short}"
+
+        # ----- full hash: git rev-parse HEAD -----
+        gitlocal_hash=$(git rev-parse HEAD)
+        echo "gitlocal_hash=${gitlocal_hash}"
+
+        # ----- commit count: git rev-list --count HEAD -> 1000 ----- !!! work without --depth=1
+        gitlocal_count=$(git rev-list --count HEAD)
+        echo "gitlocal_count=${gitlocal_count}"
+
+        # ----- DIY -----
+        tag_release="${gitlocal_branch}-${gitlocal_count}-${gitlocal_short}"
+
+        echo "tag_release=${tag_release}" | tee -a $GITHUB_ENV
+        echo "status=success" | tee -a ${GITHUB_OUTPUT}
+
+        # echo "random-id=$(echo $RANDOM)" >> $GITHUB_OUTPUT
