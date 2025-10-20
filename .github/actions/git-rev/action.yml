@@ -52,9 +52,9 @@ runs:
         echo "rev_count=${rev_count}"
 
         # ----- DIY -----
-        tag_release="${rev_ref}-${rev_count}-${rev_short}"
+        # tag_release="${rev_ref}-${rev_count}-${rev_short}"
         git_desc="${rev_ref}-${rev_count}-${rev_short}"
 
         # ----- outputs -----
-        echo "tag_release=${tag_release}" | tee -a $GITHUB_ENV | tee -a $GITHUB_OUTPUT
+        # echo "tag_release=${tag_release}" | tee -a $GITHUB_ENV | tee -a $GITHUB_OUTPUT
         echo "git_desc=${git_desc}" | tee -a $GITHUB_ENV | tee -a $GITHUB_OUTPUT
