@@ -16,6 +16,9 @@ outputs:
   tag_release:
     description: "tag_release"
     value: ${{ steps.git-rev.outputs.tag_release }}
+  git_desc:
+    description: "git_desc"
+    value: ${{ steps.git-rev.outputs.git_desc }}
 
 runs:
   using: composite
