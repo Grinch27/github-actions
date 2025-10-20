@@ -29,29 +29,28 @@ runs:
         set -x
 
         # ----- git describe --all --long -> refs/heads/master-0-gf5b6b6d -----
-        gitlocal_describe=$(git describe --all --long | cut -d'/' -f2-)
-        echo "gitlocal_describe=${gitlocal_describe}"
+        desc_long=$(git describe --all --long | cut -d'/' -f2-)
+        echo "desc_long=${desc_long}"
 
         # ----- branch: git rev-parse --abbrev-ref HEAD -> master -----
-        gitlocal_branch=$(git rev-parse --abbrev-ref HEAD)
-        echo "gitlocal_branch=${gitlocal_branch}"
-
-        # ----- short hash: git rev-parse --short HEAD -> f5b6b6d -----
-        gitlocal_short=$(git rev-parse --short HEAD)
-        echo "gitlocal_short=${gitlocal_short}"
+        rev_ref=$(git rev-parse --abbrev-ref HEAD)
+        echo "rev_ref=${rev_ref}"
 
         # ----- full hash: git rev-parse HEAD -----
-        gitlocal_hash=$(git rev-parse HEAD)
-        echo "gitlocal_hash=${gitlocal_hash}"
+        rev_hash=$(git rev-parse HEAD)
+        echo "rev_hash=${rev_hash}"
+
+        # ----- short hash: git rev-parse --short HEAD -> f5b6b6d -----
+        rev_short=$(git rev-parse --short HEAD)
+        echo "rev_short=${rev_short}"
 
         # ----- commit count: git rev-list --count HEAD -> 1000 ----- !!! work without --depth=1
-        gitlocal_count=$(git rev-list --count HEAD)
-        echo "gitlocal_count=${gitlocal_count}"
+        rev_count=$(git rev-list --count HEAD)
+        echo "rev_count=${rev_count}"
 
         # ----- DIY -----
-        tag_release="${gitlocal_branch}-${gitlocal_count}-${gitlocal_short}"
+        tag_release="${rev_ref}-${rev_count}-${rev_short}"
 
+        # ----- outputs -----
         echo "tag_release=${tag_release}" | tee -a $GITHUB_ENV
-        # echo "status=success" | tee -a ${GITHUB_OUTPUT}
-        # echo "random-id=$(echo $RANDOM)" >> $GITHUB_OUTPUT
         echo "tag_release=${tag_release}" | tee -a ${GITHUB_OUTPUT}
