@@ -9,15 +9,17 @@ runs:
   steps:
     - name: Setup Docker
       shell: bash
+      continue-on-error: true
       working-directory: /
       run: |
         echo -e "Current working directory: $(pwd)"
         df -Th
         # https://docs.docker.com/engine/install/ubuntu/
 
-
-        # uninstall all conflicting packages
-        for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do sudo apt-get remove $pkg; done
+        # uninstall all conflicting packages (ignore missing)
+        for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do
+          sudo apt-get -y remove "$pkg" || true
+        done
 
         # ===== 1. Set up Docker's apt repository =====
         # Add Docker's official GPG key:
