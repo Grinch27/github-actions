@@ -8,6 +8,7 @@ runs:
   using: composite
   steps:
     - name: Purge Snap
+      id: purge_snap
       shell: bash
       working-directory: /
       continue-on-error: true
