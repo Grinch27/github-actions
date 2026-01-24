@@ -10,6 +10,7 @@ runs:
     - name: Clean Docker Image
       shell: bash
       working-directory: /
+      continue-on-error: true
       run: |
         echo -e "Current working directory: $(pwd)"
         df -Th
