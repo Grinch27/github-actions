@@ -91,7 +91,12 @@ runs:
           "zip"
           "zlib1g-dev"
         )
-        sudo -E apt-get -yqq install "${packages_install[@]}"
+        # sudo -E apt-get -yqq install "${packages_install[@]}"
+        set +e
+        for pkg in "${packages_install[@]}"; do
+          sudo -E apt-get -yqq install "$pkg" || echo "Skip missing package: $pkg"
+        done
+        set -e
 
         # ========== reload ==========
         sudo -E apt-get -yqq autoremove --purge
