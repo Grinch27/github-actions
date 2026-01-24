@@ -9,6 +9,7 @@ runs:
   steps:
     - name: Purge Clang
       shell: bash
+      continue-on-error: true
       working-directory: /
       run: |
         echo -e "Current working directory: $(pwd)"

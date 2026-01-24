@@ -9,6 +9,7 @@ runs:
   steps:
     - name: Clean Runner
       shell: bash
+      continue-on-error: true
       working-directory: /
       run: |
         echo -e "Current working directory: $(pwd)"
