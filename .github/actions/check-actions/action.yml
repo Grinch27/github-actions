@@ -24,3 +24,69 @@ runs:
         echo "os_id=${OS_ID}" | tee -a "${GITHUB_OUTPUT}"
         echo "os_codename=${CODENAME}" | tee -a "${GITHUB_OUTPUT}"
         echo "Check: ${OS_ID} (${CODENAME})"
+
+    - name: (Check) CPU info
+      shell: bash
+      run: |
+        set -e
+        echo "=== CPU ==="
+        if command -v lscpu >/dev/null 2>&1; then
+          lscpu
+        else
+          cat /proc/cpuinfo
+        fi
+
+    - name: (Check) Memory info
+      shell: bash
+      run: |
+        set -e
+        echo "=== Memory ==="
+        if command -v free >/dev/null 2>&1; then
+          free -h
+        else
+          cat /proc/meminfo
+        fi
+
+    - name: (Check) Disk info
+      shell: bash
+      run: |
+        set -e
+        echo "=== Disk ==="
+        df -hT
+        echo "=== Block Devices ==="
+        if command -v lsblk >/dev/null 2>&1; then
+          lsblk -a
+        fi
+
+    - name: (Check) Network IP
+      shell: bash
+      run: |
+        set -e
+        echo "=== Network IP ==="
+        if command -v ip >/dev/null 2>&1; then
+          ip -brief address
+          ip route
+        else
+          ifconfig || true
+          route -n || true
+        fi
+        echo "=== Public IP (if available) ==="
+        if command -v curl >/dev/null 2>&1; then
+          curl -fsSL https://api.ipify.org || true
+          echo
+        fi
+
+    - name: (Check) DNS
+      shell: bash
+      run: |
+        set -e
+        echo "=== DNS ==="
+        cat /etc/resolv.conf
+        echo "=== DNS Query Test ==="
+        if command -v getent >/dev/null 2>&1; then
+          getent hosts github.com || true
+        elif command -v nslookup >/dev/null 2>&1; then
+          nslookup github.com || true
+        elif command -v dig >/dev/null 2>&1; then
+          dig github.com || true
+        fi
