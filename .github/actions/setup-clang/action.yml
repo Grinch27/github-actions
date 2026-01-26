@@ -8,7 +8,7 @@ inputs:
   clang_version:
     description: "Version"
     required: false
-    default: "19"
+    default: ""
 
 runs:
   using: composite
@@ -19,13 +19,20 @@ runs:
       env:
         clang_version: ${{ inputs.clang_version }}
       run: |
+        if [ -n "$clang_version" ]; then
+          pkg_suffix="-$clang_version"
+          lib_version="$clang_version"
+        else
+          pkg_suffix=""
+          lib_version=""
+        fi
         packages_install=(
-          "clang-${clang_version}"
-          "clang-format-${clang_version}"
-          "clang-tidy-${clang_version}"
-          "clangd-${clang_version}"
-          # "lld-${clang_version}"
-          # "lldb-${clang_version}"
+          "clang${pkg_suffix}"
+          "clang-format${pkg_suffix}"
+          "clang-tidy${pkg_suffix}"
+          "clangd${pkg_suffix}"
+          "lld${pkg_suffix}"
+          "lldb${pkg_suffix}"
         )
         echo "Packages to be installed: ${packages_install[@]}"
         sudo -E apt-get -yqq install "${packages_install[@]}"
