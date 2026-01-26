@@ -70,9 +70,9 @@ runs:
           ifconfig || true
           route -n || true
         fi
-        echo "=== Public IP (if available) ==="
+        echo "=== Public IP (Cloudflare trace) ==="
         if command -v curl >/dev/null 2>&1; then
-          curl -fsSL https://api.ipify.org || true
+          curl -fsSL https://1.1.1.1/cdn-cgi/trace || true
           echo
         fi
 
