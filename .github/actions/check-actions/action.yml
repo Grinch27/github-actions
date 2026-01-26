@@ -75,18 +75,3 @@ runs:
           curl -fsSL https://1.1.1.1/cdn-cgi/trace || true
           echo
         fi
-
-    - name: (Check) DNS
-      shell: bash
-      run: |
-        set -e
-        echo "=== DNS ==="
-        cat /etc/resolv.conf
-        echo "=== DNS Query Test ==="
-        if command -v getent >/dev/null 2>&1; then
-          getent hosts github.com || true
-        elif command -v nslookup >/dev/null 2>&1; then
-          nslookup github.com || true
-        elif command -v dig >/dev/null 2>&1; then
-          dig github.com || true
-        fi
