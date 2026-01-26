@@ -1,0 +1,26 @@
+name: Check Toolchain
+
+description: Check Toolchain
+
+author: "Grinch27"
+
+runs:
+  using: composite
+  steps:
+    - name: (Check) OS and codename
+      id: os-info
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      working-directory: /
+      run: |
+        set -e
+        . /etc/os-release
+        OS_ID="${ID}"
+        CODENAME="${VERSION_CODENAME:-}"
+        if [ -z "${CODENAME}" ] && command -v lsb_release >/dev/null 2>&1; then
+          CODENAME="$(lsb_release -sc)"
+        fi
+        echo "os_id=${OS_ID}" | tee -a "${GITHUB_OUTPUT}"
+        echo "os_codename=${CODENAME}" | tee -a "${GITHUB_OUTPUT}"
+        echo "Check: ${OS_ID} (${CODENAME})"
