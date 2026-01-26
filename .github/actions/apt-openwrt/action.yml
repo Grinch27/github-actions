@@ -101,7 +101,14 @@ runs:
         done
         set -e
 
-        # ========== reload ==========
+    - name: (Apt) Reload
+      id: apt-reload
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
         sudo -E apt-get -yqq autoremove --purge
         sudo -E apt-get -qq clean
         sudo -E systemctl daemon-reload

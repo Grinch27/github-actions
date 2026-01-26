@@ -7,16 +7,51 @@ author: "Grinch27"
 runs:
   using: composite
   steps:
-    - name: (Fix) GH Actions In-Docker
-      id: fix-indocker
+    - name: (Apt) Install
+      id: apt-install
       shell: bash
       env:
         DEBIAN_FRONTEND: noninteractive
       working-directory: /
       run: |
         echo -e "Current working directory: $(pwd)"
-        # fix sudo in docker
-        apt-get update
-        apt-get install -y python3 python3-pip
+        df -Th
+
+        sudo -E apt-get -yqq update
+        package_installed=$(dpkg-query -W -f='${binary:Package}\n')
+
+        packages_install=(
+          "sudo"
+          "systemctl"
+          "python3"
+          "python3-pip"
+        )
+        # sudo -E apt-get -yqq install "${packages_install[@]}"
+        set +e
+        for pkg in "${packages_install[@]}"; do
+          sudo -E apt-get -yqq install "$pkg" || echo "Skip missing package: $pkg"
+        done
+        set -e
+
+    - name: (Fix) Python3 Symlink
+      id: fix-python
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      working-directory: /
+      run: |
         # ensure `python` exists for tools that require it
-        ln -sf /usr/bin/python3 /usr/bin/python
+        sudo ln -sf /usr/bin/python3 /usr/bin/python
+
+    - name: (Apt) Reload
+      id: apt-reload
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        sudo -E apt-get -yqq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo -E systemctl daemon-reload
+        df -Th
