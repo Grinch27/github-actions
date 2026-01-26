@@ -67,6 +67,7 @@ runs:
         # 创建一个挂载点 ${path_build}, 将 runner 逻辑卷挂载到 ${path_build}, 将 ${path_build} 的所有者和组更改为 runner
         sudo mkdir -p "${path_build}"
         sudo mount /dev/github/runner "${path_build}"
-        sudo chown -R runner:runner "${path_build}"
+        # sudo chown -R runner:runner "${path_build}"
+        sudo chown -R $(whoami):$(whoami) "${path_build}"
 
         df -Th
