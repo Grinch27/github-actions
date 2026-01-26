@@ -42,7 +42,7 @@ inputs:
   gcc_version:
     description: "gcc_version"
     required: false
-    default: "false"
+    default: ""
   gcc_aarch64:
     description: "gcc_aarch64"
     required: false
@@ -63,7 +63,7 @@ inputs:
   clang_version:
     description: "clang_version"
     required: false
-    default: "false"
+    default: ""
   # ----- jdk -----
   jdk_purge:
     description: "jdk_purge"
@@ -80,7 +80,7 @@ inputs:
   jdk_version:
     description: "jdk_version"
     required: false
-    default: "false"
+    default: ""
   # ----- docker -----
   docker_install:
     description: "docker_install"
