@@ -1,0 +1,22 @@
+name: Fix GH Actions In-Docker
+
+description: Fix GH Actions In-Docker
+
+author: "Grinch27"
+
+runs:
+  using: composite
+  steps:
+    - name: (Fix) GH Actions In-Docker
+      id: fix-indocker
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        # fix sudo in docker
+        apt-get update
+        apt-get install -y python3 python3-pip
+        # ensure `python` exists for tools that require it
+        ln -sf /usr/bin/python3 /usr/bin/python
