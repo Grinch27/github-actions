@@ -4,6 +4,14 @@ description: Check Actions
 
 author: "Grinch27"
 
+outputs:
+  os_id:
+    description: "Detected OS ID"
+    value: ${{ steps.os-info.outputs.os_id }}
+  os_codename:
+    description: "Detected OS codename"
+    value: ${{ steps.os-info.outputs.os_codename }}
+
 runs:
   using: composite
   steps:
