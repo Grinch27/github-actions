@@ -8,7 +8,10 @@ runs:
   using: composite
   steps:
     - name: Apt OpenWrt
+      id: apt-openwrt
       shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
       working-directory: /
       run: |
         echo -e "Current working directory: $(pwd)"
@@ -30,8 +33,8 @@ runs:
           "build-essential"
           "bzip2"
           "ca-certificates"
-          # "clang"
-          # "clangd"
+          "clang"
+          "clangd"
           "cmake"
           "cpio"
           "curl"
@@ -41,8 +44,8 @@ runs:
           "fastjar"
           "flex"
           "gawk"
-          # "g++"
-          # "gcc"
+          "g++"
+          "gcc"
           # "gcc-aarch64-linux-gnu"
           "git"
           "git-lfs"
@@ -103,6 +106,20 @@ runs:
         sudo -E apt-get -qq clean
         sudo -E systemctl daemon-reload
         df -Th
+
+    - name: Apt Misc
+      id: apt-misc
+      if: ${{ 'true' == 'false' }} # disable
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        df -Th
+
+        sudo -E apt-get -yqq update
+        package_installed=$(dpkg-query -W -f='${binary:Package}\n')
 
         # ========== tmp code ==========
         # Commented out packages (sorted):
