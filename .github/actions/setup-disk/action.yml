@@ -20,7 +20,32 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Check in Docker
+      id: check-indocker
+      shell: bash
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        # ========== IN DOCKER ==========
+        if [ -f /.dockerenv ]; then
+          echo "in_container=true" | tee -a ${GITHUB_OUTPUT}
+        else
+          echo "in_container=false" | tee -a ${GITHUB_OUTPUT}
+        fi
+
+    - name: (Fix) Setup Disk
+      id: fix-setup-disk
+      if: steps.check-indocker.outputs.in_container == 'true'
+      shell: bash
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        sudo mkdir -p "${path_build}"
+        sudo chown -R $(whoami):$(whoami) "${path_build}"
+
     - name: Setup Disk
+      id: setup-disk
+      if: steps.check-indocker.outputs.in_container == 'false'
       shell: bash
       working-directory: /
       env:

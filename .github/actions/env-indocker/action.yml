@@ -76,86 +76,28 @@ runs:
   using: composite
   steps:
     # ========== General Environment Setup: Start ==========
-    - name: (Purge) Snap
-      id: purge-snap
-      uses: Grinch27/github-actions/.github/actions/purge-snap@main
-
-    - name: (Clean) Docker Images
-      id: clean-docker
-      uses: Grinch27/github-actions/.github/actions/clean-docker_image@main
-
-    - name: (Clean) Runner
-      id: clean-runner
-      uses: Grinch27/github-actions/.github/actions/clean-runner@main
-
-    - name: (Purge) Existing GCC
-      id: purge-gcc
-      if: ${{ inputs.gcc_purge == 'true' }}
-      uses: Grinch27/github-actions/.github/actions/purge-gcc@main
-
-    - name: (Setup) GCC - ${{ inputs.gcc_version }}
-      id: setup-gcc
-      if: ${{ inputs.gcc_install == 'true' }}
-      uses: Grinch27/github-actions/.github/actions/setup-gcc@main
-
-    - name: (Switch) Installed GCC - ${{ inputs.gcc_version }}
-      id: switch-gcc
-      if: ${{ inputs.gcc_switch == 'true' }}
-      uses: Grinch27/github-actions/.github/actions/switch-gcc@main
+    - name: (Env) Environment for Toolchain
+      id: env-toolchain
+      uses: Grinch27/github-actions/.github/actions/env-toolchain@main
       with:
-        gcc_version: ${{ inputs.gcc_version }}
-
-    - name: (Purge) Existing Clang
-      id: purge-clang
-      if: ${{ inputs.clang_purge == 'true' }}
-      uses: Grinch27/github-actions/.github/actions/purge-clang@main
-
-    - name: (Setup) Clang - ${{ inputs.clang_version }}
-      id: setup-clang
-      if: ${{ inputs.clang_install == 'true' }}
-      uses: Grinch27/github-actions/.github/actions/setup-clang@main
-
-    - name: (Switch) Installed Clang - ${{ inputs.clang_version }}
-      id: switch-clang
-      if: ${{ inputs.clang_switch == 'true' }}
-      uses: Grinch27/github-actions/.github/actions/switch-clang@main
-      with:
-        clang_version: ${{ inputs.clang_version }}
-
-    - name: (Switch) AArch64 Cross-Compiler - ${{ inputs.gcc_version }}
-      id: switch-gcc_aarch64
-      if: ${{ inputs.gcc_aarch64 == 'true' }}
-      uses: Grinch27/github-actions/.github/actions/switch-gcc_aarch64@main
-      with:
-        gcc_version: ${{ inputs.gcc_version }}
-
-    - name: (Purge) JDK
-      id: purge-jdk
-      if: ${{ inputs.jdk_purge == 'true' }}
-      uses: Grinch27/github-actions/.github/actions/purge-jdk@main
-
-    - name: (Setup) JDK - ${{ inputs.jdk_version }}
-      id: setup-jdk
-      if: ${{ inputs.jdk_install == 'true' }}
-      uses: actions/setup-java@main
-      with:
-        distribution: "temurin"
-        java-version: ${{ inputs.jdk_version }}
-
-    - name: (Setup) Docker
-      id: setup-docker
-      if: ${{ inputs.docker_install == 'true' }}
-      uses: Grinch27/github-actions/.github/actions/setup-docker@main
-
-    - name: (Setup) QEMU
-      id: setup-qemu
-      if: ${{ inputs.qemu_install == 'true' }}
-      uses: docker/setup-qemu-action@master
-      # with:
-      #   platforms: ${{ inputs.arch_branch }}
-
-    - name: (Check) toolchain
-      id: check-toolchain
-      uses: Grinch27/github-actions/.github/actions/check-toolchain@main
+        # ----- gcc -----
+        gcc_purge: ${{ env.gcc_purge }}
+        gcc_install: ${{ env.gcc_install }}
+        gcc_switch: ${{ env.gcc_switch }}
+        gcc_version: ${{ env.gcc_version }}
+        gcc_aarch64: ${{ env.gcc_aarch64 }}
+        # ----- clang -----
+        clang_purge: ${{ env.clang_purge }}
+        clang_install: ${{ env.clang_install }}
+        clang_switch: ${{ env.clang_switch }}
+        clang_version: ${{ env.clang_version }}
+        # ----- jdk -----
+        jdk_purge: ${{ env.jdk_purge }}
+        jdk_install: ${{ env.jdk_install }}
+        jdk_switch: ${{ env.jdk_switch }}
+        jdk_version: ${{ env.jdk_version }}
+        # ----- docker -----
+        docker_install: ${{ env.docker_install }}
+        qemu_install: ${{ env.qemu_install }}
 
     # ========== General Environment Setup: End ==========
