@@ -20,8 +20,11 @@ runs:
   using: composite
   steps:
     - name: (Toggle) Ubuntu devel for GCC
+      id: toggle-apt
       if: ${{ inputs.gcc_toggle == 'devel' }}
       shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
       working-directory: /
       run: |
         echo "deb http://archive.ubuntu.com/ubuntu/ devel main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/devel.list
