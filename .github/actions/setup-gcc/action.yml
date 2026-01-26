@@ -83,7 +83,8 @@ runs:
         sudo -E apt-get -yqq install "${base_packages[@]}"
 
         if [ -z "$lib_version" ]; then
-          lib_version="$(gcc -dumpfullversion 2>/dev/null || gcc -dumpversion 2>/dev/null || true)"
+          full_version="$(gcc -dumpfullversion 2>/dev/null || gcc -dumpversion 2>/dev/null || true)"
+          lib_version="${full_version%%.*}"
           if [ -z "$lib_version" ]; then
             echo "Failed to detect GCC version for libgcc/libstdc++/libgfortran."
             exit 1
