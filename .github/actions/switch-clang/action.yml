@@ -8,19 +8,37 @@ inputs:
   clang_version:
     description: "Version"
     required: false
-    default: "19"
+    default: ""
 
 runs:
   using: composite
   steps:
-    - name: Switch Clang
+    - name: (Vars) Resolve suffix
+      id: vars
       shell: bash
       working-directory: /
       env:
         clang_version: ${{ inputs.clang_version }}
       run: |
-        ls /usr/bin/clang-* /usr/bin/clang-format-* /usr/bin/clang-tidy-* || true
+        if [ -n "${{ env.clang_version }}" ]; then
+          pkg_suffix="-${{ env.clang_version }}"
+          lib_version="${{ env.clang_version }}"
+        else
+          pkg_suffix=""
+          lib_version=""
+        fi
+        echo "pkg_suffix=$pkg_suffix" >> "$GITHUB_OUTPUT"
+        echo "lib_version=$lib_version" >> "$GITHUB_OUTPUT"
 
+    - name: Configure alternatives
+      id: alternatives
+      if: ${{ inputs.clang_version != '' }}
+      shell: bash
+      working-directory: /
+      env:
+        pkg_suffix: ${{ steps.vars.outputs.pkg_suffix }}
+        lib_version: ${{ steps.vars.outputs.lib_version }}
+      run: |
         tools_clang=(
           "clang"
           "clang-format"
@@ -41,16 +59,26 @@ runs:
         sudo update-alternatives --query clang-tidy   || true
 
         for tool in "${tools_clang[@]}"; do
-          sudo update-alternatives --set ${tool} /usr/bin/${tool}-${clang_version} || true
+          sudo update-alternatives --set ${tool} /usr/bin/${tool}-${lib_version} || true
         done
 
-        # ========== reload ==========
+    - name: (Apt) Reload
+      id: apt-reload
+      shell: bash
+      working-directory: /
+      run: |
         sudo -E apt-get -yqq autoremove --purge
         sudo -E apt-get -qq clean
         sudo -E systemctl daemon-reload
         df -Th
 
-        # Verify
+    - name: Verify
+      id: verify
+      shell: bash
+      working-directory: /
+      env:
+        clang_version: ${{ inputs.clang_version }}
+      run: |
         clang --version || true
         clang-format --version || true
         clang-tidy --version || true
