@@ -9,6 +9,10 @@ author: "Grinch27"
 runs:
   using: composite
   steps:
+    - name: Load Custom Environment Variables
+      id: env-custom
+      uses: Grinch27/github-actions/.github/actions/input-custom@main
+
     - name: (Apt) Docker Needed for Actions
       id: fix-docker
       uses: Grinch27/github-actions/.github/actions/fix-indocker@main
