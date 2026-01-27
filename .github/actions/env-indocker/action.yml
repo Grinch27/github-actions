@@ -6,75 +6,16 @@ description: Environment for GH Actions in Docker
 
 author: "Grinch27"
 
-inputs:
-  # ----- gcc -----
-  gcc_purge:
-    description: "gcc_purge"
-    required: false
-    default: "false"
-  gcc_install:
-    description: "gcc_install"
-    required: false
-    default: "false"
-  gcc_switch:
-    description: "gcc_switch"
-    required: false
-    default: "false"
-  gcc_version:
-    description: "gcc_version"
-    required: false
-    default: ""
-  gcc_aarch64:
-    description: "gcc_aarch64"
-    required: false
-    default: "false"
-  # ----- clang -----
-  clang_purge:
-    description: "clang_purge"
-    required: false
-    default: "false"
-  clang_install:
-    description: "clang_install"
-    required: false
-    default: "false"
-  clang_switch:
-    description: "clang_switch"
-    required: false
-    default: "false"
-  clang_version:
-    description: "clang_version"
-    required: false
-    default: ""
-  # ----- jdk -----
-  jdk_purge:
-    description: "jdk_purge"
-    required: false
-    default: "false"
-  jdk_install:
-    description: "jdk_install"
-    required: false
-    default: "false"
-  jdk_switch:
-    description: "jdk_switch"
-    required: false
-    default: "false"
-  jdk_version:
-    description: "jdk_version"
-    required: false
-    default: ""
-  # ----- docker -----
-  docker_install:
-    description: "docker_install"
-    required: false
-    default: "false"
-  qemu_install:
-    description: "qemu_install"
-    required: false
-    default: "false"
-
 runs:
   using: composite
   steps:
+    - name: (Apt) Docker Needed for Actions
+      id: fix-docker
+      uses: Grinch27/github-actions/.github/actions/fix-indocker@main
+
+    - name: (Apt) install packages - OpenWrt
+      id: apt-openwrt
+      uses: Grinch27/github-actions/.github/actions/apt-openwrt@main
     # ========== General Environment Setup: Start ==========
     - name: (Env) Environment for Toolchain
       id: env-toolchain
@@ -101,3 +42,10 @@ runs:
         qemu_install: ${{ env.qemu_install }}
 
     # ========== General Environment Setup: End ==========
+    - name: (Disk) disk workspace
+      id: disk
+      uses: Grinch27/github-actions/.github/actions/setup-disk@main
+      with:
+        path_build: ${{ env.PATH_build }}
+        root_num: 4
+        mnt_num: 1

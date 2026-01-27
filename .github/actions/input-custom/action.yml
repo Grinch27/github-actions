@@ -1,0 +1,27 @@
+name: Load Custom Environment Variables
+
+# https://docs.github.com/zh/actions/reference/workflows-and-actions/metadata-syntax#runs-for-composite-actions
+
+description: Load Custom Environment Variables
+
+author: "Grinch27"
+
+runs:
+  using: composite
+  steps:
+    - name: Load Custom Environment Variables
+      id: env-custom
+      shell: bash
+      if: ${{ env.custom_env != '' }}
+      env:
+        DEBIAN_FRONTEND: noninteractive
+        flag_split: ";"
+      working-directory: /
+      run: |
+        echo "${{ env.custom_env }}" | tr '${{ env.flag_split }}' '\n' | tee -a $GITHUB_ENV
+        # List all environment variables
+        printenv
+        # Create directories for PATH_* variables
+        printenv | grep '^PATH_' | while IFS='=' read -r key val; do
+          [ -n "$val" ] && mkdir -p "$val"
+        done
