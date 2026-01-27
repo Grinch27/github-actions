@@ -18,7 +18,10 @@ runs:
         flag_split: ";"
       working-directory: /
       run: |
+        # Load custom environment variables
+        set +e
         echo "${{ env.custom_env }}" | tr '${{ env.flag_split }}' '\n' | tee -a $GITHUB_ENV
+        set -e
         # List all environment variables
         printenv
         # Create directories for PATH_* variables
