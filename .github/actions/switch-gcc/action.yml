@@ -13,64 +13,86 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Switch GCC
-      id: switch-gcc
-      if: ${{ inputs.gcc_version != '' }}
+    - name: (Vars) Resolve suffix
+      id: vars
       shell: bash
-      working-directory: /
       env:
         DEBIAN_FRONTEND: noninteractive
         gcc_version: ${{ inputs.gcc_version }}
+      working-directory: /
       run: |
-        echo "Setting alternatives for GCC version ${gcc_version}"
+        echo -e "Current working directory: $(pwd)"
+        df -Th
+        sudo -E apt-get -yqq update
+        package_installed=$(dpkg-query -W -f='${binary:Package}\n')
 
+        if [ -n "${{ env.gcc_version }}" ]; then
+          pkg_suffix="-${{ env.gcc_version }}"
+          lib_version="${{ env.gcc_version }}"
+        else
+          pkg_suffix=""
+          lib_version=""
+        fi
+        echo "pkg_suffix=$pkg_suffix" >> "$GITHUB_OUTPUT"
+        echo "lib_version=$lib_version" >> "$GITHUB_OUTPUT"
+
+    - name: Configure alternatives
+      id: alternatives
+      if: ${{ inputs.gcc_version != '' }}
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+        pkg_suffix: ${{ steps.vars.outputs.pkg_suffix }}
+        lib_version: ${{ steps.vars.outputs.lib_version }}
+      working-directory: /
+      run: |
         tools_gcc=(
           "gcc"
+          # "cpp"
           "gcc-ar"
           "gcc-nm"
           "gcc-ranlib"
           "g++"
+          # "gcov"
+          # "gcov-dump"
+          # "gcov-tool"
+          # "lto-dump"
         )
-
-        # 安装可用的版本到 alternatives
         for tool in "${tools_gcc[@]}"; do
-          versions=$(ls /usr/bin/${tool}-* | grep -Eo '[0-9]+$' | sort -u)
-          for ver in ${versions}; do
-            sudo update-alternatives --install /usr/bin/${tool} ${tool} /usr/bin/${tool}-${ver} ${ver}
+          versions=$(ls /usr/bin/${tool}-* 2>/dev/null | grep -Eo '[0-9]+$' | sort -u)
+          for version in ${versions}; do
+            sudo update-alternatives --install /usr/bin/${tool} ${tool} /usr/bin/${tool}-${version} ${version}
           done
         done
-
-        # 查看配置
         sudo update-alternatives --query gcc
         sudo update-alternatives --query g++
 
-        # 切换到指定版本
         for tool in "${tools_gcc[@]}"; do
-          sudo update-alternatives --set ${tool} /usr/bin/${tool}-${gcc_version}
+          sudo update-alternatives --set ${tool} /usr/bin/${tool}-${{ env.lib_version }}
         done
 
-        # ========== reload ==========
+    - name: (Apt) Reload
+      id: apt-reload
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
         sudo -E apt-get -yqq autoremove --purge
         sudo -E apt-get -qq clean
         sudo -E systemctl daemon-reload
         df -Th
 
-        echo "Switched to GCC/G++ version: ${gcc_version}"
-
-    - name: Check GCC
-      id: check-gcc
+    - name: Verify
+      id: verify
       shell: bash
       env:
         DEBIAN_FRONTEND: noninteractive
       working-directory: /
       run: |
-        set +e
-
-        echo "Current GCC version:"
-        gcc --version || echo "GCC not found"
-        g++ --version || echo "G++ not found"
-
-        echo "Available GCC versions in /usr/bin/:"
-        ls /usr/bin/gcc-* /usr/bin/g++-* || echo "No GCC versions found"
-
-        set -e
+        echo -e "Current working directory: $(pwd)"
+        df -Th
+        gcc --version
+        g++ --version
+        echo "Switched to GCC version: ${{ env.gcc_version }}"
