@@ -26,9 +26,9 @@ runs:
         sudo -E apt-get -yqq update
         package_installed=$(dpkg-query -W -f='${binary:Package}\n')
 
-        if [ -n "$gcc_version" ]; then
-          pkg_suffix="-$gcc_version"
-          lib_version="$gcc_version"
+        if [ -n "${{ env.gcc_version }}" ]; then
+          pkg_suffix="-${{ env.gcc_version }}"
+          lib_version="${{ env.gcc_version }}"
         else
           pkg_suffix=""
           lib_version=""
@@ -50,50 +50,47 @@ runs:
         sudo -E apt-get -yqq update
         package_installed=$(dpkg-query -W -f='${binary:Package}\n')
 
-        if [ -n "$gcc_version" ]; then
-          pkg_suffix="-$gcc_version"
-          lib_version="$gcc_version"
-        else
-          pkg_suffix=""
-          lib_version=""
-        fi
-
         packages_install=(
-          "gcc${pkg_suffix}-aarch64-linux-gnu"
-          "cpp${pkg_suffix}-aarch64-linux-gnu"
+          "gcc${{ env.pkg_suffix }}-aarch64-linux-gnu"
+          "cpp${{ env.pkg_suffix }}-aarch64-linux-gnu"
         )
         sudo -E apt-get -yqq install "${packages_install[@]}"
 
-        if [ -n "$lib_version" ]; then
-          # AArch64专用设置，涵盖所有带版本号的aarch64-linux-gnu工具
-          ls /usr/bin/aarch64-linux-gnu-*
-          tools_aarch64=(
-            "aarch64-linux-gnu-gcc"
-            "aarch64-linux-gnu-cpp"
-            "aarch64-linux-gnu-gcc-ar"
-            "aarch64-linux-gnu-gcc-nm"
-            "aarch64-linux-gnu-gcc-ranlib"
-            "aarch64-linux-gnu-gcov"
-            "aarch64-linux-gnu-gcov-dump"
-            "aarch64-linux-gnu-gcov-tool"
-            "aarch64-linux-gnu-lto-dump"
-          )
-          for tool in "${tools_aarch64[@]}"; do
-            versions=$(ls /usr/bin/${tool}-* 2>/dev/null | grep -Eo '[0-9]+$' | sort -u)
-            for version in ${versions}; do
-              sudo update-alternatives --install /usr/bin/${tool} ${tool} /usr/bin/${tool}-${version} ${version}
-            done
+    - name: Configure AArch64 alternatives
+      id: configure-aarch64-alternatives
+      # if: ${{ steps.install-gcc-aarch64.outcome == 'success' }}
+      if: ${{ inputs.gcc_version != '' }}
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+        pkg_suffix: ${{ steps.gcc-vars.outputs.pkg_suffix }}
+        lib_version: ${{ steps.gcc-vars.outputs.lib_version }}
+      working-directory: /
+      run: |
+        # AArch64专用设置，涵盖所有带版本号的aarch64-linux-gnu工具
+        ls /usr/bin/aarch64-linux-gnu-*
+        tools_aarch64=(
+          "aarch64-linux-gnu-gcc"
+          "aarch64-linux-gnu-cpp"
+          "aarch64-linux-gnu-gcc-ar"
+          "aarch64-linux-gnu-gcc-nm"
+          "aarch64-linux-gnu-gcc-ranlib"
+          "aarch64-linux-gnu-gcov"
+          "aarch64-linux-gnu-gcov-dump"
+          "aarch64-linux-gnu-gcov-tool"
+          "aarch64-linux-gnu-lto-dump"
+        )
+        for tool in "${tools_aarch64[@]}"; do
+          versions=$(ls /usr/bin/${tool}-* 2>/dev/null | grep -Eo '[0-9]+$' | sort -u)
+          for version in ${versions}; do
+            sudo update-alternatives --install /usr/bin/${tool} ${tool} /usr/bin/${tool}-${version} ${version}
           done
-          sudo update-alternatives --query aarch64-linux-gnu-gcc
-          # 切换到所需版本
-          for tool in "${tools_aarch64[@]}"; do
-            sudo update-alternatives --set ${tool} /usr/bin/${tool}-${lib_version}
-          done
-        fi
-
-        # 验证版本
-        aarch64-linux-gnu-gcc --version
-        echo "Switched to AArch64 GCC version: ${{ env.gcc_version }}"
+        done
+        sudo update-alternatives --query aarch64-linux-gnu-gcc
+        # 切换到所需版本
+        for tool in "${tools_aarch64[@]}"; do
+          sudo update-alternatives --set ${tool} /usr/bin/${tool}-${{ env.lib_version }}
+        done
 
     - name: (Apt) Reload
       id: apt-reload
@@ -107,3 +104,16 @@ runs:
         sudo -E apt-get -qq clean
         sudo -E systemctl daemon-reload
         df -Th
+
+    - name: Verify AArch64 GCC
+      id: verify-aarch64-gcc
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        df -Th
+        # 验证版本
+        aarch64-linux-gnu-gcc --version
+        echo "Switched to AArch64 GCC version: ${{ env.gcc_version }}"
