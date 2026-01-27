@@ -16,9 +16,10 @@ runs:
     - name: (Vars) Resolve suffix
       id: vars
       shell: bash
-      working-directory: /
       env:
+        DEBIAN_FRONTEND: noninteractive
         clang_version: ${{ inputs.clang_version }}
+      working-directory: /
       run: |
         if [ -n "${{ env.clang_version }}" ]; then
           pkg_suffix="-${{ env.clang_version }}"
@@ -34,10 +35,11 @@ runs:
       id: alternatives
       if: ${{ inputs.clang_version != '' }}
       shell: bash
-      working-directory: /
       env:
+        DEBIAN_FRONTEND: noninteractive
         pkg_suffix: ${{ steps.vars.outputs.pkg_suffix }}
         lib_version: ${{ steps.vars.outputs.lib_version }}
+      working-directory: /
       run: |
         tools_clang=(
           "clang"
@@ -65,6 +67,8 @@ runs:
     - name: (Apt) Reload
       id: apt-reload
       shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
       working-directory: /
       run: |
         sudo -E apt-get -yqq autoremove --purge
@@ -77,6 +81,7 @@ runs:
       shell: bash
       working-directory: /
       env:
+        DEBIAN_FRONTEND: noninteractive
         clang_version: ${{ inputs.clang_version }}
       run: |
         clang --version || true
