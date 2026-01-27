@@ -99,7 +99,8 @@ runs:
         echo "Base packages to be installed: ${base_packages[@]}"
         sudo -E apt-get -yqq install "${base_packages[@]}"
 
-        if [ -z "${{ env.lib_version }}" ]; then
+        lib_version="${{ env.lib_version }}"
+        if [ -z "$lib_version" ]; then
           full_version="$(gcc -dumpfullversion 2>/dev/null || gcc -dumpversion 2>/dev/null || true)"
           lib_version="${full_version%%.*}"
           if [ -z "$lib_version" ]; then
@@ -109,9 +110,9 @@ runs:
         fi
 
         lib_packages=(
-          "libgcc-${{ env.lib_version }}-dev"
-          "libstdc++-${{ env.lib_version }}-dev"
-          "libgfortran-${{ env.lib_version }}-dev"
+          "libgcc-${lib_version}-dev"
+          "libstdc++-${lib_version}-dev"
+          "libgfortran-${lib_version}-dev"
         )
         echo "Lib packages to be installed: ${lib_packages[@]}"
         sudo -E apt-get -yqq install "${lib_packages[@]}"
