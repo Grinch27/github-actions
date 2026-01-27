@@ -13,32 +13,57 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Setup Clang
+    - name: (Vars) Resolve suffix
+      id: vars
       shell: bash
       env:
         DEBIAN_FRONTEND: noninteractive
         clang_version: ${{ inputs.clang_version }}
       working-directory: /
       run: |
-        if [ -n "$clang_version" ]; then
-          pkg_suffix="-$clang_version"
-          lib_version="$clang_version"
+        echo -e "Current working directory: $(pwd)"
+        df -Th
+        sudo -E apt-get -yqq update
+        package_installed=$(dpkg-query -W -f='${binary:Package}\n')
+
+        if [ -n "${{ env.clang_version }}" ]; then
+          pkg_suffix="-${{ env.clang_version }}"
+          lib_version="${{ env.clang_version }}"
         else
           pkg_suffix=""
           lib_version=""
         fi
+        echo "pkg_suffix=$pkg_suffix" >> "$GITHUB_OUTPUT"
+        echo "lib_version=$lib_version" >> "$GITHUB_OUTPUT"
+
+    - name: Setup Clang
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+        clang_version: ${{ inputs.clang_version }}
+        pkg_suffix: ${{ steps.vars.outputs.pkg_suffix }}
+        lib_version: ${{ steps.vars.outputs.lib_version }}
+      working-directory: /
+      run: |
         packages_install=(
-          "clang${pkg_suffix}"
-          "clang-format${pkg_suffix}"
-          "clang-tidy${pkg_suffix}"
-          "clangd${pkg_suffix}"
-          "lld${pkg_suffix}"
-          "lldb${pkg_suffix}"
+          "clang${{ env.pkg_suffix }}"
+          "clang-format${{ env.pkg_suffix }}"
+          "clang-tidy${{ env.pkg_suffix }}"
+          "clangd${{ env.pkg_suffix }}"
+          "lld${{ env.pkg_suffix }}"
+          "lldb${{ env.pkg_suffix }}"
         )
         echo "Packages to be installed: ${packages_install[@]}"
         sudo -E apt-get -yqq install "${packages_install[@]}"
 
-        # ========== reload ==========
+    - name: (Apt) Reload
+      id: apt-reload
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
         sudo -E apt-get -yqq autoremove --purge
         sudo -E apt-get -qq clean
         sudo -E systemctl daemon-reload

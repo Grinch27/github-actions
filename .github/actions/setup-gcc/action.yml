@@ -20,7 +20,7 @@ runs:
   using: composite
   steps:
     - name: (Vars) Resolve GCC suffix
-      id: gcc-vars
+      id: vars
       shell: bash
       env:
         DEBIAN_FRONTEND: noninteractive
@@ -78,8 +78,8 @@ runs:
       working-directory: /
       env:
         DEBIAN_FRONTEND: noninteractive
-        pkg_suffix: ${{ steps.gcc-vars.outputs.pkg_suffix }}
-        lib_version: ${{ steps.gcc-vars.outputs.lib_version }}
+        pkg_suffix: ${{ steps.vars.outputs.pkg_suffix }}
+        lib_version: ${{ steps.vars.outputs.lib_version }}
       run: |
         echo "Current working directory: $(pwd)"
         df -Th

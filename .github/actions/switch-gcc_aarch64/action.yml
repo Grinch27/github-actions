@@ -14,7 +14,7 @@ runs:
   using: composite
   steps:
     - name: (Vars) Resolve GCC suffix
-      id: gcc-vars
+      id: vars
       shell: bash
       env:
         DEBIAN_FRONTEND: noninteractive
@@ -41,8 +41,8 @@ runs:
       shell: bash
       env:
         DEBIAN_FRONTEND: noninteractive
-        pkg_suffix: ${{ steps.gcc-vars.outputs.pkg_suffix }}
-        lib_version: ${{ steps.gcc-vars.outputs.lib_version }}
+        pkg_suffix: ${{ steps.vars.outputs.pkg_suffix }}
+        lib_version: ${{ steps.vars.outputs.lib_version }}
       working-directory: /
       run: |
         echo -e "Current working directory: $(pwd)"
@@ -63,8 +63,8 @@ runs:
       shell: bash
       env:
         DEBIAN_FRONTEND: noninteractive
-        pkg_suffix: ${{ steps.gcc-vars.outputs.pkg_suffix }}
-        lib_version: ${{ steps.gcc-vars.outputs.lib_version }}
+        pkg_suffix: ${{ steps.vars.outputs.pkg_suffix }}
+        lib_version: ${{ steps.vars.outputs.lib_version }}
       working-directory: /
       run: |
         # AArch64专用设置，涵盖所有带版本号的aarch64-linux-gnu工具
