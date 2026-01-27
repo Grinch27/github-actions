@@ -11,8 +11,8 @@ runs:
   steps:
     - name: Load Custom Environment Variables
       id: env-custom
+      # if: ${{ env.custom_env != '' }}
       shell: bash
-      if: ${{ env.custom_env != '' }}
       env:
         DEBIAN_FRONTEND: noninteractive
         flag_split: ";"
