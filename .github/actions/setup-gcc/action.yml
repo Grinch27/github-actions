@@ -40,7 +40,7 @@ runs:
           lib_version=""
         fi
         echo "pkg_suffix=$pkg_suffix" >> "$GITHUB_OUTPUT"
-        echo "lib_version=${{ env.lib_version }}" >> "$GITHUB_OUTPUT"
+        echo "lib_version=$lib_version" >> "$GITHUB_OUTPUT"
 
     - name: (Toggle) Ubuntu devel for GCC
       id: toggle-apt
@@ -102,7 +102,7 @@ runs:
         if [ -z "${{ env.lib_version }}" ]; then
           full_version="$(gcc -dumpfullversion 2>/dev/null || gcc -dumpversion 2>/dev/null || true)"
           lib_version="${full_version%%.*}"
-          if [ -z "${{ env.lib_version }}" ]; then
+          if [ -z "$lib_version" ]; then
             echo "Failed to detect GCC version for libgcc/libstdc++/libgfortran."
             exit 1
           fi
