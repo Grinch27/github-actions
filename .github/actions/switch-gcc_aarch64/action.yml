@@ -56,8 +56,8 @@ runs:
         )
         sudo -E apt-get -yqq install "${packages_install[@]}"
 
-    - name: Configure AArch64 alternatives
-      id: configure-aarch64-alternatives
+    - name: Configure alternatives
+      id: alternatives
       # if: ${{ steps.install-gcc-aarch64.outcome == 'success' }}
       if: ${{ inputs.gcc_version != '' }}
       shell: bash
