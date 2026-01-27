@@ -8,6 +8,7 @@ inputs:
   path_build:
     description: Mount point to use
     required: true
+    default: ""
   root_num:
     description: Reserved GiB on /
     required: false
@@ -37,6 +38,8 @@ runs:
       id: fix-setup-disk
       if: steps.check-indocker.outputs.in_container == 'true'
       shell: bash
+      env:
+        path_build: ${{ inputs.path_build }}
       working-directory: /
       run: |
         echo -e "Current working directory: $(pwd)"
@@ -47,11 +50,11 @@ runs:
       id: setup-disk
       if: steps.check-indocker.outputs.in_container == 'false'
       shell: bash
-      working-directory: /
       env:
         path_build: ${{ inputs.path_build }}
         root_num: ${{ inputs.root_num }}
         mnt_num: ${{ inputs.mnt_num }}
+      working-directory: /
       run: |
         echo "Current working directory: $(pwd)"
         df -Th
