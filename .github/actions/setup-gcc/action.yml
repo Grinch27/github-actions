@@ -19,6 +19,29 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: (Vars) Resolve GCC suffix
+      id: gcc-vars
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+        gcc_version: ${{ inputs.gcc_version }}
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        df -Th
+        sudo -E apt-get -yqq update
+        package_installed=$(dpkg-query -W -f='${binary:Package}\n')
+
+        if [ -n "${{ env.gcc_version }}" ]; then
+          pkg_suffix="-${{ env.gcc_version }}"
+          lib_version="${{ env.gcc_version }}"
+        else
+          pkg_suffix=""
+          lib_version=""
+        fi
+        echo "pkg_suffix=$pkg_suffix" >> "$GITHUB_OUTPUT"
+        echo "lib_version=${{ env.lib_version }}" >> "$GITHUB_OUTPUT"
+
     - name: (Toggle) Ubuntu devel for GCC
       id: toggle-apt
       if: ${{ inputs.gcc_toggle == 'devel' }}
@@ -54,56 +77,44 @@ runs:
       shell: bash
       working-directory: /
       env:
-        gcc_version: ${{ inputs.gcc_version }}
+        DEBIAN_FRONTEND: noninteractive
+        pkg_suffix: ${{ steps.gcc-vars.outputs.pkg_suffix }}
+        lib_version: ${{ steps.gcc-vars.outputs.lib_version }}
       run: |
         echo "Current working directory: $(pwd)"
         df -Th
 
-        if [ -n "$gcc_version" ]; then
-          pkg_suffix="-$gcc_version"
-          lib_version="$gcc_version"
-        else
-          pkg_suffix=""
-          lib_version=""
-        fi
-
         base_packages=(
           # ----- gcc -----
-          "gcc${pkg_suffix}"
-          "gcc${pkg_suffix}-multilib"
+          "gcc${{ env.pkg_suffix }}"
+          "gcc${{ env.pkg_suffix }}-multilib"
           # ----- g++ -----
-          "g++${pkg_suffix}"
-          "g++${pkg_suffix}-multilib"
+          "g++${{ env.pkg_suffix }}"
+          "g++${{ env.pkg_suffix }}-multilib"
           # ----- cpp -----
-          "cpp${pkg_suffix}"
+          "cpp${{ env.pkg_suffix }}"
           # ----- gfortran -----
-          "gfortran${pkg_suffix}"
+          "gfortran${{ env.pkg_suffix }}"
         )
         echo "Base packages to be installed: ${base_packages[@]}"
         sudo -E apt-get -yqq install "${base_packages[@]}"
 
-        if [ -z "$lib_version" ]; then
+        if [ -z "${{ env.lib_version }}" ]; then
           full_version="$(gcc -dumpfullversion 2>/dev/null || gcc -dumpversion 2>/dev/null || true)"
           lib_version="${full_version%%.*}"
-          if [ -z "$lib_version" ]; then
+          if [ -z "${{ env.lib_version }}" ]; then
             echo "Failed to detect GCC version for libgcc/libstdc++/libgfortran."
             exit 1
           fi
         fi
 
         lib_packages=(
-          "libgcc-${lib_version}-dev"
-          "libstdc++-${lib_version}-dev"
-          "libgfortran-${lib_version}-dev"
+          "libgcc-${{ env.lib_version }}-dev"
+          "libstdc++-${{ env.lib_version }}-dev"
+          "libgfortran-${{ env.lib_version }}-dev"
         )
         echo "Lib packages to be installed: ${lib_packages[@]}"
         sudo -E apt-get -yqq install "${lib_packages[@]}"
-
-        # ========== reload ==========
-        sudo -E apt-get -yqq autoremove --purge
-        sudo -E apt-get -qq clean
-        sudo -E systemctl daemon-reload
-        df -Th
 
     - name: (Remove) Ubuntu devel for GCC
       if: ${{ inputs.gcc_toggle == 'devel' }}
@@ -120,3 +131,29 @@ runs:
       run: |
         sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/ppa || true
         sudo -E apt-get -yqq update
+
+    - name: (Apt) Reload
+      id: apt-reload
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        sudo -E apt-get -yqq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo -E systemctl daemon-reload
+        df -Th
+
+    - name: Verify
+      id: verify
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        df -Th
+        # 验证版本
+        gcc --version
+        g++ --version
