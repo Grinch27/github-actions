@@ -1,0 +1,146 @@
+name: Git Revision Info
+
+# https://docs.github.com/zh/actions/reference/workflows-and-actions/metadata-syntax#runs-for-composite-actions
+
+description: Git Revision Info
+
+author: "Grinch27"
+
+inputs:
+  path_target:
+    description: "Path to the git repository"
+    required: false
+    default: "."
+  repo:
+    description: "Repository in owner/name format. Empty means auto-detect from GITHUB_REPOSITORY or current directory"
+    required: false
+    default: ""
+  ref:
+    description: "Branch, tag, or commit-ish. HEAD means auto-resolve to default branch"
+    required: false
+    default: "HEAD"
+  ref_prefix:
+    description: "Qualified ref prefix used for branch commit count lookup"
+    required: false
+    default: "refs/heads/"
+  short_length:
+    description: "Short hash length"
+    required: false
+    default: "7"
+  desc_format:
+    description: "Output format placeholders: {ref} {count} {short}"
+    required: false
+    default: "{ref}-{count}-{short}"
+  gh_token:
+    description: "GitHub token for gh API. Empty means using GH_TOKEN/GITHUB_TOKEN from environment"
+    required: false
+    default: ""
+
+outputs:
+  tag_release:
+    description: "tag_release"
+    value: ${{ steps.git-rev.outputs.tag_release }}
+  git_desc:
+    description: "git_desc"
+    value: ${{ steps.git-rev.outputs.git_desc }}
+
+runs:
+  using: composite
+  steps:
+    - name: (GH) Git Revision Info
+      id: git-rev
+      shell: bash
+      working-directory: ${{ inputs.path_target }}
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        set -x
+        set -euo pipefail
+
+        gh_revision_info() {
+          local repo=""
+          local ref="HEAD"
+          local ref_prefix="refs/heads/"
+          local short_length="7"
+          local desc_format="{ref}-{count}-{short}"
+          local gh_token=""
+
+          while [[ $# -gt 0 ]]; do
+            case "$1" in
+              --repo) repo="$2"; shift 2 ;;
+              --ref) ref="$2"; shift 2 ;;
+              --ref_prefix) ref_prefix="$2"; shift 2 ;;
+              --short_length) short_length="$2"; shift 2 ;;
+              --desc_format) desc_format="$2"; shift 2 ;;
+              --gh_token) gh_token="$2"; shift 2 ;;
+              *) break ;;
+            esac
+          done
+
+          if [[ -n "${gh_token}" ]]; then
+            export GH_TOKEN="${gh_token}"
+          elif [[ -n "${GH_TOKEN:-}" ]]; then
+            export GH_TOKEN="${GH_TOKEN}"
+          elif [[ -n "${GITHUB_TOKEN:-}" ]]; then
+            export GH_TOKEN="${GITHUB_TOKEN}"
+          fi
+
+          if [[ -z "${repo}" ]]; then
+            if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+              repo="${GITHUB_REPOSITORY}"
+            else
+              repo=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+            fi
+          fi
+
+          local owner="${repo%%/*}"
+          local name="${repo##*/}"
+          local rev_ref=""
+
+          if [[ -z "${ref}" || "${ref}" == "HEAD" ]]; then
+            rev_ref=$(gh repo view "${repo}" --json defaultBranchRef --jq '.defaultBranchRef.name')
+          else
+            rev_ref="${ref}"
+          fi
+
+          local rev_hash
+          local rev_short
+          local rev_count
+          local qualified_ref
+          local desc_long
+          local tag_release
+          local git_desc
+
+          rev_hash=$(gh api "repos/${repo}/commits/${rev_ref}" --jq '.sha')
+          rev_short="${rev_hash:0:${short_length}}"
+
+          qualified_ref="${ref_prefix}${rev_ref}"
+          rev_count=$(gh api graphql \
+            -f owner="${owner}" \
+            -f name="${name}" \
+            -f qualifiedRef="${qualified_ref}" \
+            -f query='query($owner: String!, $name: String!, $qualifiedRef: String!) { repository(owner: $owner, name: $name) { ref(qualifiedName: $qualifiedRef) { target { ... on Commit { history(first: 1) { totalCount } } } } } }' \
+            --jq '.data.repository.ref.target.history.totalCount')
+
+          desc_long="${rev_ref}-${rev_count}-g${rev_short}"
+          echo "desc_long=${desc_long}"
+          echo "rev_ref=${rev_ref}"
+          echo "rev_hash=${rev_hash}"
+          echo "rev_short=${rev_short}"
+          echo "rev_count=${rev_count}"
+
+          tag_release="${desc_format//\{ref\}/${rev_ref}}"
+          tag_release="${tag_release//\{count\}/${rev_count}}"
+          tag_release="${tag_release//\{short\}/${rev_short}}"
+          git_desc="${tag_release}"
+
+          echo "tag_release=${tag_release}" | tee -a "$GITHUB_ENV" | tee -a "$GITHUB_OUTPUT"
+          echo "git_desc=${git_desc}" | tee -a "$GITHUB_ENV" | tee -a "$GITHUB_OUTPUT"
+        }
+
+        gh_revision_info \
+          --repo "${{ inputs.repo }}" \
+          --ref "${{ inputs.ref }}" \
+          --ref_prefix "${{ inputs.ref_prefix }}" \
+          --short_length "${{ inputs.short_length }}" \
+          --desc_format "${{ inputs.desc_format }}" \
+          --gh_token "${{ inputs.gh_token }}"
