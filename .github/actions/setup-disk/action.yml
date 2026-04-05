@@ -26,25 +26,239 @@ runs:
       shell: bash
       working-directory: /
       run: |
+        set -euo pipefail
         echo -e "Current working directory: $(pwd)"
         # ========== IN DOCKER ==========
         if [ -f /.dockerenv ]; then
-          echo "in_container=true" | tee -a ${GITHUB_OUTPUT}
+          echo "in_container=true" | tee -a "${GITHUB_OUTPUT}"
         else
-          echo "in_container=false" | tee -a ${GITHUB_OUTPUT}
+          echo "in_container=false" | tee -a "${GITHUB_OUTPUT}"
         fi
+
+    - name: Setup Disk for Docker
+      id: setup-disk-docker
+      if: steps.check-indocker.outputs.in_container == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        path_build: ${{ inputs.path_build }}
+        root_num: ${{ inputs.root_num }}
+        mnt_num: ${{ inputs.mnt_num }}
+      working-directory: /
+      run: |
+        set -euo pipefail
+
+        echo -e "Current working directory: $(pwd)"
+        df -Th
+
+        run_root() {
+          if command -v sudo >/dev/null 2>&1; then
+            sudo "$@"
+          else
+            "$@"
+          fi
+        }
+
+        ensure_disk_tools() {
+          local required_cmds missing_cmds cmd
+
+          required_cmds=(df losetup mount mountpoint pvcreate vgcreate lvcreate truncate)
+          missing_cmds=()
+          for cmd in "${required_cmds[@]}"; do
+            if ! command -v "${cmd}" >/dev/null 2>&1; then
+              missing_cmds+=("${cmd}")
+            fi
+          done
+
+          if ! command -v mkfs.xfs >/dev/null 2>&1 && ! command -v mkfs.ext4 >/dev/null 2>&1; then
+            missing_cmds+=("mkfs")
+          fi
+
+          if [ "${#missing_cmds[@]}" -eq 0 ]; then
+            return 0
+          fi
+
+          if ! command -v apt-get >/dev/null 2>&1; then
+            echo "apt-get not found, but required disk tools are missing: ${missing_cmds[*]}"
+            return 1
+          fi
+
+          run_root env DEBIAN_FRONTEND=noninteractive apt-get -yqq update
+          run_root env DEBIAN_FRONTEND=noninteractive apt-get -yqq install lvm2 util-linux e2fsprogs xfsprogs
+        }
+
+        get_available_bytes() {
+          local mount_path="$1"
+          if [ -n "${mount_path}" ] && [ -d "${mount_path}" ]; then
+            df -B1 "${mount_path}" | awk 'END {print $4}'
+          else
+            echo 0
+          fi
+        }
+
+        get_filesystem_key() {
+          local mount_path="$1"
+          if [ -n "${mount_path}" ] && [ -d "${mount_path}" ]; then
+            df -P "${mount_path}" | awk 'END {print $1":"$6}'
+          else
+            echo ""
+          fi
+        }
+
+        ensure_loop_devices() {
+          local index
+
+          if command -v modprobe >/dev/null 2>&1; then
+            run_root modprobe loop >/dev/null 2>&1 || true
+          fi
+
+          if command -v mknod >/dev/null 2>&1; then
+            if [ ! -e /dev/loop-control ]; then
+              run_root mknod -m 660 /dev/loop-control c 10 237 >/dev/null 2>&1 || true
+            fi
+            for index in $(seq 0 7); do
+              if [ ! -b "/dev/loop${index}" ]; then
+                run_root mknod -m 660 "/dev/loop${index}" b 7 "${index}" >/dev/null 2>&1 || true
+              fi
+            done
+          fi
+        }
+
+        add_backing_file() {
+          local label="$1"
+          local mount_path="$2"
+          local file_path="$3"
+          local reserve_gib="$4"
+          local raw_available reserve_bytes usable_bytes
+
+          raw_available=$(get_available_bytes "${mount_path}")
+          reserve_bytes=$((reserve_gib * 1024 * 1024 * 1024))
+          usable_bytes=$((raw_available - reserve_bytes))
+
+          echo "Raw available space in ${label} (bytes): ${raw_available}"
+          echo "Usable space in ${label} after reserve (bytes): ${usable_bytes}"
+
+          if [ "${usable_bytes}" -lt "${min_file_bytes}" ]; then
+            echo "Skip ${label}: usable space ${usable_bytes} is below minimum ${min_file_bytes}"
+            return 0
+          fi
+
+          file_paths+=("${file_path}")
+          file_sizes+=("${usable_bytes}")
+        }
+
+        if [ -z "${path_build}" ]; then
+          echo "path_build is required"
+          exit 1
+        fi
+
+        ensure_disk_tools
+        ensure_loop_devices
+
+        run_root mkdir -p "${path_build}"
+        if mountpoint -q "${path_build}"; then
+          echo "${path_build} is already mounted"
+          run_root chown -R "$(whoami):$(whoami)" "${path_build}"
+          df -Th "${path_build}"
+          exit 0
+        fi
+
+        if ! run_root losetup -f >/dev/null 2>&1; then
+          echo "No loop device available for setup-disk-docker"
+          exit 1
+        fi
+
+        vg_suffix=$(printf '%s_%s' "${GITHUB_RUN_ID:-local}" "${GITHUB_RUN_ATTEMPT:-0}" | tr -cs '[:alnum:]_' '_')
+        vg_name="github_${vg_suffix}"
+        lv_name="runner"
+        lv_path="/dev/${vg_name}/${lv_name}"
+        min_file_bytes=$((1024 * 1024 * 1024))
+        root_fs_key=$(get_filesystem_key "/")
+        mnt_fs_key=$(get_filesystem_key "/mnt")
+        loop_devices=()
+        file_paths=()
+        file_sizes=()
+
+        cleanup_on_error() {
+          local exit_code="$?"
+          local loop_device file_path
+
+          set +e
+          if mountpoint -q "${path_build}"; then
+            run_root umount "${path_build}"
+          fi
+          if run_root lvdisplay "${lv_path}" >/dev/null 2>&1; then
+            run_root lvremove -fy "${lv_path}"
+          fi
+          if run_root vgdisplay "${vg_name}" >/dev/null 2>&1; then
+            run_root vgremove -fy "${vg_name}"
+          fi
+          for loop_device in "${loop_devices[@]}"; do
+            if run_root pvs "${loop_device}" >/dev/null 2>&1; then
+              run_root pvremove -ffy "${loop_device}"
+            fi
+            run_root losetup -d "${loop_device}" >/dev/null 2>&1 || true
+          done
+          for file_path in "${file_paths[@]}"; do
+            run_root rm -f "${file_path}"
+          done
+          exit "${exit_code}"
+        }
+        trap cleanup_on_error ERR
+
+        if [ -n "${mnt_fs_key}" ] && [ "${mnt_fs_key}" = "${root_fs_key}" ]; then
+          echo "Skip /mnt: shares the same filesystem with /"
+        else
+          add_backing_file "/mnt" "/mnt" "/mnt/${vg_name}_mnt.img" "${mnt_num}"
+        fi
+        add_backing_file "/" "/" "/${vg_name}_root.img" "${root_num}"
+
+        if [ "${#file_paths[@]}" -eq 0 ]; then
+          echo "No usable space available for setup-disk-docker after applying reserved GiB"
+          exit 1
+        fi
+
+        for idx in "${!file_paths[@]}"; do
+          file_path="${file_paths[$idx]}"
+          file_size="${file_sizes[$idx]}"
+
+          run_root mkdir -p "$(dirname "${file_path}")"
+          run_root rm -f "${file_path}"
+          run_root truncate -s "${file_size}" "${file_path}"
+
+          loop_device=$(run_root losetup --find --show "${file_path}")
+          loop_devices+=("${loop_device}")
+          echo "Assigned loop device for ${file_path}: ${loop_device}"
+
+          run_root pvcreate -ff -y "${loop_device}"
+        done
+
+        run_root vgcreate "${vg_name}" "${loop_devices[@]}"
+        run_root lvcreate -n "${lv_name}" -l 100%FREE "${vg_name}"
+
+        if command -v mkfs.xfs >/dev/null 2>&1; then
+          run_root mkfs.xfs -f "${lv_path}"
+        else
+          run_root mkfs.ext4 -F "${lv_path}"
+        fi
+
+        run_root mount "${lv_path}" "${path_build}"
+        run_root chown -R "$(whoami):$(whoami)" "${path_build}"
+
+        df -Th
 
     - name: (Fix) Setup Disk
       id: fix-setup-disk
-      if: steps.check-indocker.outputs.in_container == 'true'
+      if: steps.check-indocker.outputs.in_container == 'true' && steps.setup-disk-docker.outcome == 'failure'
       shell: bash
       env:
         path_build: ${{ inputs.path_build }}
       working-directory: /
       run: |
+        set -euo pipefail
         echo -e "Current working directory: $(pwd)"
         sudo mkdir -p "${path_build}"
-        sudo chown -R $(whoami):$(whoami) "${path_build}"
+        sudo chown -R "$(whoami):$(whoami)" "${path_build}"
 
     - name: Setup Disk
       id: setup-disk
