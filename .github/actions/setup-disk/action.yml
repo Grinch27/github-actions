@@ -51,7 +51,7 @@ runs:
         # 统一以当前用户或 sudo 执行系统命令
         run_root() {
           if command -v sudo >/dev/null 2>&1; then
-            sudo -E "$@"
+            sudo env "DEBIAN_FRONTEND=${DEBIAN_FRONTEND:-noninteractive}" "$@"
           else
             "$@"
           fi
@@ -108,10 +108,56 @@ runs:
         # 统一以当前用户或 sudo 执行系统命令
         run_root() {
           if command -v sudo >/dev/null 2>&1; then
-            sudo -E "$@"
+            sudo "$@"
           else
             "$@"
           fi
+        }
+
+        # 读取指定路径所在文件系统标识
+        get_filesystem_key() {
+          local mount_path="$1"
+          if [ -n "${mount_path}" ] && [ -d "${mount_path}" ]; then
+            df -P "${mount_path}" | awk 'END {print $1":"$6}'
+          else
+            echo ""
+          fi
+        }
+
+        # 修复容器内丢失的 loop 设备节点
+        ensure_loop_devices() {
+          local index
+
+          if command -v modprobe >/dev/null 2>&1; then
+            run_root modprobe loop >/dev/null 2>&1 || true
+          fi
+
+          if command -v mknod >/dev/null 2>&1; then
+            if [ ! -e /dev/loop-control ]; then
+              run_root mknod -m 660 /dev/loop-control c 10 237 >/dev/null 2>&1 || true
+            fi
+            for index in $(seq 0 7); do
+              if [ ! -b "/dev/loop${index}" ]; then
+                run_root mknod -m 660 "/dev/loop${index}" b 7 "${index}" >/dev/null 2>&1 || true
+              fi
+            done
+          fi
+        }
+
+        # 绑定 loop 设备，失败时尝试修复节点后重试一次
+        attach_loop_device() {
+          local file_path="$1"
+          local loop_device
+
+          if loop_device=$(run_root losetup --find --show "${file_path}"); then
+            printf '%s\n' "${loop_device}"
+            return 0
+          fi
+
+          echo "Retry losetup after repairing loop devices for ${file_path}"
+          ensure_loop_devices
+          loop_device=$(run_root losetup --find --show "${file_path}")
+          printf '%s\n' "${loop_device}"
         }
 
         # 校验输入参数
@@ -181,6 +227,9 @@ runs:
           exit 1
         fi
 
+        # 先补齐 loop 设备节点，再检查是否可用
+        ensure_loop_devices
+
         # 确认可用 loop 设备
         if ! run_root losetup -f >/dev/null 2>&1; then
           echo "No loop device available for setup-disk"
@@ -196,6 +245,8 @@ runs:
         loop_devices=()
         file_paths=()
         file_sizes=()
+        root_fs_key=$(get_filesystem_key "/")
+        mnt_fs_key=$(get_filesystem_key "/mnt")
 
         # 失败时回滚挂载、卷组、物理卷和镜像文件
         cleanup_on_error() {
@@ -228,7 +279,11 @@ runs:
         trap cleanup_on_error ERR
 
         # 根据 /mnt 和 / 的剩余空间登记待创建映像文件
-        add_backing_file "/mnt" "/mnt" "/mnt/${vg_name}_mnt.img" "${mnt_num}"
+        if [ -n "${mnt_fs_key}" ] && [ "${mnt_fs_key}" = "${root_fs_key}" ]; then
+          echo "Skip /mnt: shares the same filesystem with /"
+        else
+          add_backing_file "/mnt" "/mnt" "/mnt/${vg_name}_mnt.img" "${mnt_num}"
+        fi
         add_backing_file "/" "/" "/${vg_name}_root.img" "${root_num}"
 
         # 两个分区都不足时直接失败
@@ -242,10 +297,11 @@ runs:
           file_path="${file_paths[$idx]}"
           file_size="${file_sizes[$idx]}"
 
+          run_root mkdir -p "$(dirname "${file_path}")"
           run_root rm -f "${file_path}"
           run_root truncate -s "${file_size}" "${file_path}"
 
-          loop_device=$(run_root losetup --find --show "${file_path}")
+          loop_device=$(attach_loop_device "${file_path}")
           loop_devices+=("${loop_device}")
           echo "Assigned loop device for ${file_path}: ${loop_device}"
 
