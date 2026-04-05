@@ -27,8 +27,9 @@ runs:
       working-directory: /
       run: |
         set -euo pipefail
+
+        # 识别当前是否运行在 Docker 容器内
         echo -e "Current working directory: $(pwd)"
-        # ========== IN DOCKER ==========
         if [ -f /.dockerenv ]; then
           echo "in_container=true" | tee -a "${GITHUB_OUTPUT}"
         else
@@ -45,46 +46,45 @@ runs:
         mnt_num: ${{ inputs.mnt_num }}
       working-directory: /
       run: |
+        # 输出当前磁盘状态
         echo "Current working directory: $(pwd)"
         df -Th
 
-        # 获取 /mnt 和 / 分区的剩余空间
+        # 读取 /mnt 与 / 的可用空间
         mnt_available=$(df -B1 /mnt | tail -1 | awk '{print $4}')
         root_available=$(df -B1 / | tail -1 | awk '{print $4}')
         echo "Raw available space in /mnt (bytes): ${mnt_available}"
         echo "Raw available space in / (bytes): ${root_available}"
 
-        # 减去缓冲空间：/mnt 和 / 分区分别减去缓冲
+        # 扣除预留空间
         gb2bytes=$((1024 * 1024 * 1024))
         mnt_size=$((${mnt_available} - ${{ env.mnt_num }} * ${gb2bytes}))
         root_size=$((${root_available} - ${{ env.root_num }} * ${gb2bytes}))
         echo "Available space in /mnt (bytes): ${mnt_size}"
         echo "Available space in / (bytes): ${root_size}"
 
-        # 创建磁盘映像文件
+        # 创建回环映像文件
         sudo truncate -s "${mnt_size}" /mnt/mnt.img
         sudo truncate -s "${root_size}" /root.img
 
-        # 动态分配可用的循环设备
+        # 绑定 loop 设备
         LOOP_MNT=$(sudo losetup --find --show /mnt/mnt.img)
         LOOP_ROOT=$(sudo losetup --find --show /root.img)
         echo "Assigned loop device for /mnt/mnt.img: ${LOOP_MNT}"
         echo "Assigned loop device for /root.img: ${LOOP_ROOT}"
 
-        # 创建物理卷
+        # 初始化物理卷并创建卷组
         sudo pvcreate "${LOOP_MNT}"
         sudo pvcreate "${LOOP_ROOT}"
-        # 创建卷组
         sudo vgcreate github "${LOOP_MNT}" "${LOOP_ROOT}"
 
-        # 在 github 卷组上创建一个名为 runner 的逻辑卷，使用所有可用空间, 并格式化为XFS文件系统
+        # 创建逻辑卷并格式化
         sudo lvcreate -n runner -l 100%FREE github
         sudo mkfs.xfs /dev/github/runner
 
-        # 创建一个挂载点 ${path_build}, 将 runner 逻辑卷挂载到 ${path_build}, 将 ${path_build} 的所有者和组更改为 runner
+        # 挂载逻辑卷并修正权限
         sudo mkdir -p "${path_build}"
         sudo mount /dev/github/runner "${path_build}"
-        # sudo chown -R runner:runner "${path_build}"
         sudo chown -R $(whoami):$(whoami) "${path_build}"
 
         df -Th
@@ -102,9 +102,11 @@ runs:
       run: |
         set -euo pipefail
 
+        # 输出当前磁盘状态
         echo -e "Current working directory: $(pwd)"
         df -Th
 
+        # 统一 root 执行入口
         run_root() {
           if command -v sudo >/dev/null 2>&1; then
             sudo "$@"
@@ -113,6 +115,7 @@ runs:
           fi
         }
 
+        # 补齐扩盘所需依赖
         ensure_disk_tools() {
           local required_cmds missing_cmds cmd
 
@@ -141,6 +144,7 @@ runs:
           run_root env DEBIAN_FRONTEND=noninteractive apt-get -yqq install lvm2 util-linux e2fsprogs xfsprogs
         }
 
+        # 读取指定目录的剩余字节数
         get_available_bytes() {
           local mount_path="$1"
           if [ -n "${mount_path}" ] && [ -d "${mount_path}" ]; then
@@ -150,6 +154,7 @@ runs:
           fi
         }
 
+        # 标识目录所在文件系统
         get_filesystem_key() {
           local mount_path="$1"
           if [ -n "${mount_path}" ] && [ -d "${mount_path}" ]; then
@@ -159,12 +164,14 @@ runs:
           fi
         }
 
+        # 尝试补齐 loop 设备节点
         ensure_loop_devices() {
           local index
 
           if command -v modprobe >/dev/null 2>&1; then
             run_root modprobe loop >/dev/null 2>&1 || true
           fi
+        # 计算可用空间并登记映像文件
 
           if command -v mknod >/dev/null 2>&1; then
             if [ ! -e /dev/loop-control ]; then
@@ -201,14 +208,17 @@ runs:
           file_sizes+=("${usable_bytes}")
         }
 
+        # 校验关键输入
         if [ -z "${path_build}" ]; then
           echo "path_build is required"
           exit 1
         fi
 
+        # 安装依赖并准备 loop 节点
         ensure_disk_tools
         ensure_loop_devices
 
+        # 已挂载时直接复用目标目录
         run_root mkdir -p "${path_build}"
         if mountpoint -q "${path_build}"; then
           echo "${path_build} is already mounted"
@@ -217,11 +227,13 @@ runs:
           exit 0
         fi
 
+        # 检查 loop 设备是否可用
         if ! run_root losetup -f >/dev/null 2>&1; then
           echo "No loop device available for setup-disk-docker"
           exit 1
         fi
 
+        # 初始化本次扩盘的资源名与状态
         vg_suffix=$(printf '%s_%s' "${GITHUB_RUN_ID:-local}" "${GITHUB_RUN_ATTEMPT:-0}" | tr -cs '[:alnum:]_' '_')
         vg_name="github_${vg_suffix}"
         lv_name="runner"
@@ -233,6 +245,7 @@ runs:
         file_paths=()
         file_sizes=()
 
+        # 失败时清理已创建的挂载与 LVM 资源
         cleanup_on_error() {
           local exit_code="$?"
           local loop_device file_path
@@ -260,6 +273,7 @@ runs:
         }
         trap cleanup_on_error ERR
 
+        # 同盘时跳过 /mnt，避免重复计入空间
         if [ -n "${mnt_fs_key}" ] && [ "${mnt_fs_key}" = "${root_fs_key}" ]; then
           echo "Skip /mnt: shares the same filesystem with /"
         else
@@ -267,11 +281,13 @@ runs:
         fi
         add_backing_file "/" "/" "/${vg_name}_root.img" "${root_num}"
 
+        # 无可用空间时直接失败
         if [ "${#file_paths[@]}" -eq 0 ]; then
           echo "No usable space available for setup-disk-docker after applying reserved GiB"
           exit 1
         fi
 
+        # 创建映像文件并初始化物理卷
         for idx in "${!file_paths[@]}"; do
           file_path="${file_paths[$idx]}"
           file_size="${file_sizes[$idx]}"
@@ -287,15 +303,18 @@ runs:
           run_root pvcreate -ff -y "${loop_device}"
         done
 
+        # 创建卷组与逻辑卷
         run_root vgcreate "${vg_name}" "${loop_devices[@]}"
         run_root lvcreate -n "${lv_name}" -l 100%FREE "${vg_name}"
 
+        # 优先使用 xfs，失败时退回 ext4
         if command -v mkfs.xfs >/dev/null 2>&1; then
           run_root mkfs.xfs -f "${lv_path}"
         else
           run_root mkfs.ext4 -F "${lv_path}"
         fi
 
+        # 挂载逻辑卷并修正权限
         run_root mount "${lv_path}" "${path_build}"
         run_root chown -R "$(whoami):$(whoami)" "${path_build}"
 
@@ -310,6 +329,8 @@ runs:
       working-directory: /
       run: |
         set -euo pipefail
+
+        # Docker 扩盘失败时回退到目录模式
         echo -e "Current working directory: $(pwd)"
         sudo mkdir -p "${path_build}"
         sudo chown -R "$(whoami):$(whoami)" "${path_build}"
