@@ -48,7 +48,7 @@ runs:
 
     - name: Setup Disk
       id: setup-disk
-      if: steps.check-indocker.outputs.in_container == 'false'
+      # if: steps.check-indocker.outputs.in_container == 'false'
       shell: bash
       env:
         path_build: ${{ inputs.path_build }}
