@@ -27,8 +27,9 @@ runs:
       working-directory: /
       run: |
         set -euo pipefail
+
+        # 输出当前目录并记录是否运行在 Docker 容器内
         echo -e "Current working directory: $(pwd)"
-        # ========== IN DOCKER ==========
         if [ -f /.dockerenv ]; then
           echo "in_container=true" | tee -a "${GITHUB_OUTPUT}"
         else
@@ -43,10 +44,11 @@ runs:
       working-directory: /
       run: |
         set -euo pipefail
+
+        # 输出当前目录并准备磁盘工具安装
         echo -e "Current working directory: $(pwd)"
 
-        # 补齐 Setup Disk 依赖工具，避免不同运行环境缺少命令
-
+        # 统一以当前用户或 sudo 执行系统命令
         run_root() {
           if command -v sudo >/dev/null 2>&1; then
             sudo -E "$@"
@@ -55,6 +57,7 @@ runs:
           fi
         }
 
+        # 检查扩盘流程依赖的基础命令
         required_cmds=(df losetup mount mountpoint pvcreate vgcreate lvcreate truncate)
         missing_cmds=()
         for cmd in "${required_cmds[@]}"; do
@@ -63,20 +66,24 @@ runs:
           fi
         done
 
+        # 检查是否至少存在一种文件系统格式化工具
         if ! command -v mkfs.xfs >/dev/null 2>&1 && ! command -v mkfs.ext4 >/dev/null 2>&1; then
           missing_cmds+=("mkfs")
         fi
 
+        # 依赖完整时直接跳过安装
         if [ "${#missing_cmds[@]}" -eq 0 ]; then
           echo "Disk tools already present"
           exit 0
         fi
 
+        # 缺少包管理器时直接报错
         if ! command -v apt-get >/dev/null 2>&1; then
           echo "apt-get not found, but required disk tools are missing: ${missing_cmds[*]}"
           exit 1
         fi
 
+        # 安装扩盘所需系统包
         echo "Installing packages for missing commands: ${missing_cmds[*]}"
         run_root apt-get -yqq update
         run_root apt-get -yqq install lvm2 util-linux e2fsprogs xfsprogs
@@ -93,10 +100,12 @@ runs:
       run: |
         set -euo pipefail
 
+        # 输出当前目录、运行环境和磁盘状态
         echo "Current working directory: $(pwd)"
         echo "Running setup-disk with in_container=${in_container}"
         df -Th
 
+        # 统一以当前用户或 sudo 执行系统命令
         run_root() {
           if command -v sudo >/dev/null 2>&1; then
             sudo -E "$@"
@@ -105,14 +114,16 @@ runs:
           fi
         }
 
+        # 校验输入参数
         if [ -z "${path_build}" ]; then
           echo "path_build is required"
           exit 1
         fi
 
-        # 创建一个挂载点 ${path_build}
+        # 预创建挂载目录
         run_root mkdir -p "${path_build}"
 
+        # 已挂载时直接复用现有目录
         if mountpoint -q "${path_build}"; then
           echo "${path_build} is already mounted"
           run_root chown -R "$(whoami):$(whoami)" "${path_build}"
@@ -120,6 +131,7 @@ runs:
           exit 0
         fi
 
+        # 读取指定挂载点的剩余字节数
         get_available_bytes() {
           local mount_path="$1"
           if [ -n "${mount_path}" ] && [ -d "${mount_path}" ]; then
@@ -136,16 +148,15 @@ runs:
           local reserve_gib="$4"
           local raw_available reserve_bytes usable_bytes
 
-          # 获取 /mnt 和 / 分区的剩余空间
+          # 计算保留空间后的可用容量
           raw_available=$(get_available_bytes "${mount_path}")
-
-          # 减去缓冲空间：/mnt 和 / 分区分别减去缓冲
           reserve_bytes=$((reserve_gib * 1024 * 1024 * 1024))
           usable_bytes=$((raw_available - reserve_bytes))
 
           echo "Raw available space in ${label} (bytes): ${raw_available}"
           echo "Usable space in ${label} after reserve (bytes): ${usable_bytes}"
 
+          # 容量足够时登记为待创建的映像文件
           if [ "${usable_bytes}" -lt "${min_file_bytes}" ]; then
             echo "Skip ${label}: usable space ${usable_bytes} is below minimum ${min_file_bytes}"
             return 0
@@ -155,6 +166,7 @@ runs:
           file_sizes+=("${usable_bytes}")
         }
 
+        # 校验扩盘流程所需命令
         required_cmds=(df losetup mount mountpoint pvcreate vgcreate lvcreate truncate)
         for cmd in "${required_cmds[@]}"; do
           if ! command -v "${cmd}" >/dev/null 2>&1; then
@@ -163,16 +175,19 @@ runs:
           fi
         done
 
+        # 校验文件系统格式化工具
         if ! command -v mkfs.xfs >/dev/null 2>&1 && ! command -v mkfs.ext4 >/dev/null 2>&1; then
           echo "No supported mkfs command found"
           exit 1
         fi
 
+        # 确认可用 loop 设备
         if ! run_root losetup -f >/dev/null 2>&1; then
           echo "No loop device available for setup-disk"
           exit 1
         fi
 
+        # 生成本次运行的唯一卷组和逻辑卷名称
         vg_suffix=$(printf '%s_%s' "${GITHUB_RUN_ID:-local}" "${GITHUB_RUN_ATTEMPT:-0}" | tr -cs '[:alnum:]_' '_')
         vg_name="github_${vg_suffix}"
         lv_name="runner"
@@ -182,6 +197,7 @@ runs:
         file_paths=()
         file_sizes=()
 
+        # 失败时回滚挂载、卷组、物理卷和镜像文件
         cleanup_on_error() {
           local exit_code="$?"
           if [ "${exit_code}" -eq 0 ]; then
@@ -211,15 +227,17 @@ runs:
         }
         trap cleanup_on_error ERR
 
-        # 创建磁盘映像文件
+        # 根据 /mnt 和 / 的剩余空间登记待创建映像文件
         add_backing_file "/mnt" "/mnt" "/mnt/${vg_name}_mnt.img" "${mnt_num}"
         add_backing_file "/" "/" "/${vg_name}_root.img" "${root_num}"
 
+        # 两个分区都不足时直接失败
         if [ "${#file_paths[@]}" -eq 0 ]; then
           echo "No usable space available for setup-disk after applying reserved GiB"
           exit 1
         fi
 
+        # 创建映像文件、绑定 loop 设备并初始化物理卷
         for idx in "${!file_paths[@]}"; do
           file_path="${file_paths[$idx]}"
           file_size="${file_sizes[$idx]}"
@@ -227,29 +245,27 @@ runs:
           run_root rm -f "${file_path}"
           run_root truncate -s "${file_size}" "${file_path}"
 
-          # 动态分配可用的循环设备
           loop_device=$(run_root losetup --find --show "${file_path}")
           loop_devices+=("${loop_device}")
           echo "Assigned loop device for ${file_path}: ${loop_device}"
 
-          # 创建物理卷
           run_root pvcreate -ff -y "${loop_device}"
         done
 
-        # 创建卷组
+        # 创建卷组与逻辑卷
         run_root vgcreate "${vg_name}" "${loop_devices[@]}"
-
-        # 在 github 卷组上创建一个名为 runner 的逻辑卷，使用所有可用空间, 并格式化为文件系统
         run_root lvcreate -n "${lv_name}" -l 100%FREE "${vg_name}"
 
+        # 优先使用 xfs，否则回退到 ext4
         if command -v mkfs.xfs >/dev/null 2>&1; then
           run_root mkfs.xfs -f "${lv_path}"
         else
           run_root mkfs.ext4 -F "${lv_path}"
         fi
 
-        # 创建一个挂载点 ${path_build}, 将 runner 逻辑卷挂载到 ${path_build}, 将 ${path_build} 的所有者和组更改为当前用户
+        # 挂载逻辑卷并修正目录权限
         run_root mount "${lv_path}" "${path_build}"
         run_root chown -R "$(whoami):$(whoami)" "${path_build}"
 
+        # 输出扩盘后的磁盘状态
         df -Th
