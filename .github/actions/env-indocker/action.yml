@@ -13,6 +13,11 @@ runs:
       id: env-custom
       uses: Grinch27/github-actions/.github/actions/input-custom@main
 
+    - name: (Setup) Docker
+      id: setup-docker
+      # if: ${{ env.docker_install == 'true' }}
+      uses: Grinch27/github-actions/.github/actions/setup-docker@main
+
     - name: (Apt) Docker Needed for Actions
       id: fix-docker
       uses: Grinch27/github-actions/.github/actions/fix-indocker@main
@@ -44,7 +49,6 @@ runs:
         # ----- docker -----
         docker_install: ${{ env.docker_install }}
         qemu_install: ${{ env.qemu_install }}
-
     # ========== General Environment Setup: End ==========
     - name: (Disk) disk workspace
       id: disk
