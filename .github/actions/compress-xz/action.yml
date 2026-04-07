@@ -10,9 +10,9 @@ inputs:
     required: true
     default: "/"
   pattern_match:
-    description: Regular expression matched against file names in ./
+    description: Regular expression matched against values from for file in ./*
     required: false
-    default: "^.*.tar.*$"
+    default: ".*"
   split_size:
     description: Chunk size used when splitting large compressed files
     required: false
@@ -35,8 +35,8 @@ runs:
   steps:
     - name: Compress with xz
       env:
-        pattern_match: "${{ inputs.pattern_match || '^.*.tar.*$' }}"
-        split_size: "${{ inputs.split_size || '1900M' }}"
+        pattern_match: "${{ inputs.pattern_match || '.*' }}"
+        split_size: "${{ inputs.split_size || '1999M' }}"
         split_threshold: "${{ inputs.split_threshold || '2000000000' }}"
         mem_hold: "${{ inputs.mem_hold || '2048' }}"
         memlimit: "${{ inputs.memlimit || '4GiB' }}"
@@ -53,12 +53,8 @@ runs:
         fi
         echo "memlimit: ${memlimit}"
 
-        shopt -s nullglob
         for file in ./*; do
-          [[ -f "${file}" ]] || continue
-
-          filename="${file#./}"
-          [[ "${filename}" =~ ${pattern_match} ]] || continue
+          [[ -f "${file}" && "${file}" =~ ${pattern_match} ]] || continue
 
           xz --compress \
             --threads=0 \
