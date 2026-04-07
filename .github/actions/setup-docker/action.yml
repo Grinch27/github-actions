@@ -7,42 +7,70 @@ author: "Grinch27"
 runs:
   using: composite
   steps:
+    - name: Check in Docker
+      id: check-indocker
+      shell: bash
+      working-directory: /
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        set -euo pipefail
+        if [ -f /.dockerenv ]; then
+          echo "in_container=true" | tee -a "${GITHUB_OUTPUT}"
+        else
+          echo "in_container=false" | tee -a "${GITHUB_OUTPUT}"
+        fi
+
     - name: Setup Docker
       shell: bash
       continue-on-error: true
+      env:
+        in_container: ${{ steps.check-indocker.outputs.in_container }}
       working-directory: /
       run: |
         echo -e "Current working directory: $(pwd)"
         df -Th
-        # https://docs.docker.com/engine/install/ubuntu/
+        set -euo pipefail
 
+        run_root() {
+          if command -v sudo >/dev/null 2>&1; then
+            sudo "$@"
+          else
+            "$@"
+          fi
+        }
+
+        # https://docs.docker.com/engine/install/ubuntu/
         # uninstall all conflicting packages (ignore missing)
         for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do
-          sudo apt-get -y remove "$pkg" || true
+          run_root env DEBIAN_FRONTEND=noninteractive apt-get -y remove "$pkg" || true
         done
 
         # ===== 1. Set up Docker's apt repository =====
         # Add Docker's official GPG key:
-        sudo apt-get update
-        sudo apt-get install ca-certificates curl
-        sudo install -m 0755 -d /etc/apt/keyrings
-        sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-        sudo chmod a+r /etc/apt/keyrings/docker.asc
+        run_root apt-get update
+        run_root env DEBIAN_FRONTEND=noninteractive apt-get -yqq install ca-certificates curl
+        run_root install -m 0755 -d /etc/apt/keyrings
+        run_root curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+        run_root chmod a+r /etc/apt/keyrings/docker.asc
 
         # Add the repository to Apt sources:
         echo \
           "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
           $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
-          sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-        sudo apt-get update
+          run_root tee /etc/apt/sources.list.d/docker.list > /dev/null
+        run_root apt-get update
 
         # ===== 2. Install the Docker packages =====
-        sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        run_root env DEBIAN_FRONTEND=noninteractive apt-get -yqq install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
         # ========== reload ==========
-        sudo -E apt-get -yqq autoremove --purge
-        sudo -E apt-get -qq clean
-        sudo -E systemctl daemon-reload
+        run_root env DEBIAN_FRONTEND=noninteractive apt-get -yqq autoremove --purge
+        run_root apt-get -qq clean
+        if [ "${in_container}" = 'false' ] && command -v systemctl >/dev/null 2>&1; then
+          run_root systemctl daemon-reload
+        else
+          echo "Skip systemctl daemon-reload inside container or when systemctl is unavailable"
+        fi
         df -Th
 
         docker --version
