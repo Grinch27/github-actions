@@ -18,7 +18,6 @@ runs:
       working-directory: /
       run: |
         echo -e "Current working directory: $(pwd)"
-        set -euo pipefail
 
         if [ -f /.dockerenv ]; then
           echo "in_container=true" | tee -a "${GITHUB_OUTPUT}"
