@@ -12,11 +12,12 @@ runs:
       uses: Grinch27/github-actions/.github/actions/check-indocker@main
 
     - name: Setup Docker
-      shell: bash
+      id: setup-docker
       continue-on-error: true
       env:
         in_container: ${{ steps.check-indocker.outputs.in_container }}
       working-directory: /
+      shell: bash
       run: |
         echo -e "Current working directory: $(pwd)"
         df -Th
