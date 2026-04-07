@@ -57,9 +57,9 @@ runs:
       shell: bash
       run: |
         echo -e "Current working directory: $(pwd)"
+        free -h
         ls -lh ./
 
-        free -h
         available_mem=$(free -m | awk '/^Mem:/{print $7}')
         echo -e "Available memory: ${available_mem} MiB"
         if [[ "${available_mem}" -gt 6144 ]]; then
