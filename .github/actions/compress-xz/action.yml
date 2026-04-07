@@ -1,6 +1,6 @@
 name: Compress Files with XZ
 
-description: Compress matching files with xz and split large artifacts
+description: Compress matching files with xz
 
 author: "Grinch27"
 
@@ -13,14 +13,6 @@ inputs:
     description: Regular expression matched against values from for file in ./*
     required: false
     default: ".*"
-  split_size:
-    description: Chunk size used when splitting large compressed files
-    required: false
-    default: "1900M"
-  split_threshold:
-    description: Size threshold in bytes for splitting compressed files
-    required: false
-    default: "2000000000"
   mem_hold:
     description: Reserved memory in MiB before computing xz memlimit
     required: false
@@ -36,8 +28,6 @@ runs:
     - name: Compress with xz
       env:
         pattern_match: "${{ inputs.pattern_match || '.*' }}"
-        split_size: "${{ inputs.split_size || '1999M' }}"
-        split_threshold: "${{ inputs.split_threshold || '2000000000' }}"
         mem_hold: "${{ inputs.mem_hold || '2048' }}"
         memlimit: "${{ inputs.memlimit || '4GiB' }}"
       working-directory: "${{ inputs.path_target || '/' }}"
@@ -67,17 +57,5 @@ runs:
 
           if [[ -f "${file}" ]]; then
             rm -f "${file}"
-          fi
-
-          compressed_file="${file}.xz"
-          compressed_size=$(du -b "${compressed_file}" | cut -f1)
-          if [[ "${compressed_size}" -gt "${split_threshold}" ]]; then
-            echo "Split ${compressed_file} with chunk size ${split_size}"
-            split -b "${split_size}" \
-              --numeric-suffixes=1 \
-              --suffix-length=3 \
-              "${compressed_file}" "${compressed_file}.part"
-            rm -f "${compressed_file}"
-            ls -lh "${compressed_file}.part"*
           fi
         done

@@ -1,0 +1,71 @@
+name: Split Files
+
+description: Split matching files into file-split chunks
+
+author: "Grinch27"
+
+inputs:
+  path_target:
+    description: Directory containing files to split
+    required: true
+    default: "/"
+  pattern_match:
+    description: Regular expression matched against values from for file in ./*
+    required: false
+    default: ".*\\.xz$"
+  split_size:
+    description: Chunk size used when splitting files
+    required: false
+    default: "1900M"
+  split_threshold:
+    description: Size threshold in bytes for splitting files
+    required: false
+    default: "2000000000"
+  output_dir:
+    description: Directory used to store split chunks
+    required: false
+    default: "file-split"
+
+runs:
+  using: composite
+  steps:
+    - name: Split files
+      env:
+        pattern_match: "${{ inputs.pattern_match || '.*\\.xz$' }}"
+        split_size: "${{ inputs.split_size || '1900M' }}"
+        split_threshold: "${{ inputs.split_threshold || '2000000000' }}"
+        output_dir: "${{ inputs.output_dir || 'file-split' }}"
+      working-directory: "${{ inputs.path_target || '/' }}"
+      shell: bash
+      run: |
+        echo -e "Current working directory: $(pwd)"
+        ls -lh ./
+
+        split_one() {
+          local file="$1"
+          local file_size split_prefix
+
+          [[ -n "${file}" && -f "${file}" ]] || return 0
+
+          file_size=$(du -b "${file}" | cut -f1)
+          if [[ "${file_size}" -le "${split_threshold}" ]]; then
+            return 0
+          fi
+
+          mkdir -p "${output_dir}"
+          split_prefix="${output_dir}/$(basename "${file}").part"
+
+          rm -f "${split_prefix}"*
+          echo "Split ${file} with chunk size ${split_size}"
+          split -b "${split_size}" \
+            --numeric-suffixes=1 \
+            --suffix-length=3 \
+            "${file}" "${split_prefix}"
+          rm -f "${file}"
+          ls -lh "${split_prefix}"*
+        }
+
+        for file in ./*; do
+          [[ -f "${file}" && "${file}" =~ ${pattern_match} ]] || continue
+          split_one "${file}"
+        done
