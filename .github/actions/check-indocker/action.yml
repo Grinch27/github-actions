@@ -1,0 +1,27 @@
+name: Check in Docker
+
+description: Check whether current job runs inside Docker
+
+author: "Grinch27"
+
+outputs:
+  in_container:
+    description: Whether current job runs inside Docker
+    value: ${{ steps.check-indocker.outputs.in_container }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check in Docker
+      id: check-indocker
+      shell: bash
+      working-directory: /
+      run: |
+        set -euo pipefail
+
+        echo -e "Current working directory: $(pwd)"
+        if [ -f /.dockerenv ]; then
+          echo "in_container=true" | tee -a "${GITHUB_OUTPUT}"
+        else
+          echo "in_container=false" | tee -a "${GITHUB_OUTPUT}"
+        fi

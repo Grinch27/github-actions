@@ -9,16 +9,7 @@ runs:
   steps:
     - name: Check in Docker
       id: check-indocker
-      shell: bash
-      working-directory: /
-      run: |
-        echo -e "Current working directory: $(pwd)"
-        set -euo pipefail
-        if [ -f /.dockerenv ]; then
-          echo "in_container=true" | tee -a "${GITHUB_OUTPUT}"
-        else
-          echo "in_container=false" | tee -a "${GITHUB_OUTPUT}"
-        fi
+      uses: Grinch27/github-actions/.github/actions/check-indocker@main
 
     - name: Setup Docker
       shell: bash
