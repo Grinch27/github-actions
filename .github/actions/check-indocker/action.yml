@@ -17,11 +17,18 @@ runs:
       shell: bash
       working-directory: /
       run: |
+        echo -e "Current working directory: $(pwd)"
         set -euo pipefail
 
-        echo -e "Current working directory: $(pwd)"
         if [ -f /.dockerenv ]; then
           echo "in_container=true" | tee -a "${GITHUB_OUTPUT}"
         else
           echo "in_container=false" | tee -a "${GITHUB_OUTPUT}"
         fi
+
+        env_vars=(
+          "in_container"
+        )
+        for var in "${env_vars[@]}"; do
+          echo "${var}=${!var}" | tee -a "$GITHUB_ENV"
+        done
