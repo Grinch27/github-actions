@@ -17,11 +17,11 @@ on:
 jobs:
   job:
     name: Testing Matrix
-    runs-on: ${{ matrix.runner_image || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.runner_image || 'ubuntu-26.04' }}
     strategy:
       fail-fast: false
       matrix:
-        runner_image: ["ubuntu-latest"]
+        runner_image: ["ubuntu-26.04"]
         gcc_toggle: ["ppa", "devel", "false"]
     env:
       gcc_version: "15"
