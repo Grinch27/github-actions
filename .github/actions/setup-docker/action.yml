@@ -45,25 +45,19 @@ runs:
         run_root curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
         run_root chmod a+r /etc/apt/keyrings/docker.asc
 
-        # Add the repository to Apt sources:
+        # Add the repository to Apt sources. The job container may be
+        # ubuntu:devel, whose codename is not necessarily published by Docker.
         . /etc/os-release
-        docker_codename="${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}"
-        if [ -z "${docker_codename}" ]; then
-          echo "::error::Cannot determine Ubuntu codename for Docker APT repository."
-          exit 1
-        fi
+        detected_codename="${UBUNTU_CODENAME:-${VERSION_CODENAME:-unknown}}"
+        docker_codename="resolute"
 
         if ! curl -fsI "https://download.docker.com/linux/ubuntu/dists/${docker_codename}/Release" >/dev/null; then
-          case "${docker_codename}" in
-            stonking|resolute)
-              echo "::warning::Docker APT repository does not support '${docker_codename}', falling back to 'noble'."
-              docker_codename="noble"
-              ;;
-            *)
-              echo "::error::Docker APT repository does not support '${docker_codename}'."
-              exit 1
-              ;;
-          esac
+          echo "::warning::Docker APT repository does not support '${docker_codename}' for detected Ubuntu codename '${detected_codename}', falling back to 'noble'."
+          docker_codename="noble"
+          if ! curl -fsI "https://download.docker.com/linux/ubuntu/dists/${docker_codename}/Release" >/dev/null; then
+            echo "::error::Docker APT repository does not support '${docker_codename}'."
+            exit 1
+          fi
         fi
 
         echo \
