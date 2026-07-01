@@ -90,6 +90,18 @@ inputs:
     description: "qemu_install"
     required: false
     default: "false"
+  purge_snap:
+    description: "purge_snap"
+    required: false
+    default: "true"
+  clean_docker_image:
+    description: "clean_docker_image"
+    required: false
+    default: "true"
+  clean_runner:
+    description: "clean_runner"
+    required: false
+    default: "true"
 
 runs:
   using: composite
@@ -97,14 +109,17 @@ runs:
     # ========== General Environment Setup: Start ==========
     - name: (Purge) Snap
       id: purge-snap
+      if: ${{ inputs.purge_snap == 'true' }}
       uses: Grinch27/github-actions/.github/actions/purge-snap@main
 
     - name: (Clean) Docker Images
       id: clean-docker
+      if: ${{ inputs.clean_docker_image == 'true' }}
       uses: Grinch27/github-actions/.github/actions/clean-docker_image@main
 
     - name: (Clean) Runner
       id: clean-runner
+      if: ${{ inputs.clean_runner == 'true' }}
       uses: Grinch27/github-actions/.github/actions/clean-runner@main
 
     - name: (Purge) Existing GCC

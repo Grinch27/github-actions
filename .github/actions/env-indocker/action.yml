@@ -49,6 +49,9 @@ runs:
         # ----- docker -----
         docker_install: ${{ env.docker_install }}
         qemu_install: ${{ env.qemu_install }}
+        purge_snap: "false"
+        clean_docker_image: "false"
+        clean_runner: "false"
     # ========== General Environment Setup: End ==========
     - name: (Disk) disk workspace
       id: disk
