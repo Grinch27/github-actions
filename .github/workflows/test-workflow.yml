@@ -29,11 +29,11 @@ jobs:
         id: runner
         uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
 
-      # - name: Print resolved runner
-      #   shell: bash
-      #   run: |
-      #     printf 'runs_on=%s\n' "${{ steps.runner.outputs.runs_on }}"
-      #     test -n "${{ steps.runner.outputs.runs_on }}"
+      - name: Print resolved runner
+        shell: bash
+        run: |
+          printf 'runs_on=%s\n' "${{ steps.runner.outputs.runs_on }}"
+          test -n "${{ steps.runner.outputs.runs_on }}"
 
   action:
     needs: runner
