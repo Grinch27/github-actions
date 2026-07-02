@@ -122,59 +122,105 @@ runs:
       if: ${{ inputs.clean_runner == 'true' }}
       uses: Grinch27/github-actions/.github/actions/clean-runner@main
 
+    - name: (Resolve) Toolchain Versions
+      id: resolve-toolchain
+      uses: Grinch27/github-actions/.github/actions/resolve-toolchain-version@main
+
+    - name: (Resolve) Effective Toolchain Versions
+      id: toolchain
+      shell: bash
+      env:
+        NEED_GCC: ${{ inputs.gcc_install == 'true' || inputs.gcc_switch == 'true' || inputs.gcc_aarch64 == 'true' }}
+        NEED_CLANG: ${{ inputs.clang_install == 'true' || inputs.clang_switch == 'true' }}
+        NEED_JDK: ${{ inputs.jdk_install == 'true' }}
+        GCC_VERSION: ${{ inputs.gcc_version || steps.resolve-toolchain.outputs.gcc_version }}
+        CLANG_VERSION: ${{ inputs.clang_version || steps.resolve-toolchain.outputs.clang_version }}
+        JDK_VERSION: ${{ inputs.jdk_version || steps.resolve-toolchain.outputs.jdk_version }}
+      run: |
+        set -euo pipefail
+
+        fail() {
+          printf '::error::%s\n' "$*" >&2
+          exit 1
+        }
+
+        if [ "$NEED_GCC" = "true" ] && [ -z "$GCC_VERSION" ]; then
+          fail "gcc_version is required but could not be resolved."
+        fi
+
+        if [ "$NEED_CLANG" = "true" ] && [ -z "$CLANG_VERSION" ]; then
+          fail "clang_version is required but could not be resolved."
+        fi
+
+        if [ "$NEED_JDK" = "true" ] && [ -z "$JDK_VERSION" ]; then
+          fail "jdk_version is required but could not be resolved."
+        fi
+
+        {
+          printf 'gcc_version=%s\n' "$GCC_VERSION"
+          printf 'clang_version=%s\n' "$CLANG_VERSION"
+          printf 'jdk_version=%s\n' "$JDK_VERSION"
+        } >> "$GITHUB_OUTPUT"
+
+        printf 'Effective toolchain versions: gcc=%s clang=%s jdk=%s\n' "$GCC_VERSION" "$CLANG_VERSION" "$JDK_VERSION"
+
     - name: (Purge) Existing GCC
       id: purge-gcc
       if: ${{ inputs.gcc_purge == 'true' }}
       uses: Grinch27/github-actions/.github/actions/purge-gcc@main
 
-    - name: (Setup) GCC - ${{ inputs.gcc_version }}
+    - name: (Setup) GCC - ${{ steps.toolchain.outputs.gcc_version }}
       id: setup-gcc
       if: ${{ inputs.gcc_install == 'true' }}
       uses: Grinch27/github-actions/.github/actions/setup-gcc@main
+      with:
+        gcc_version: ${{ steps.toolchain.outputs.gcc_version }}
 
-    - name: (Switch) Installed GCC - ${{ inputs.gcc_version }}
+    - name: (Switch) Installed GCC - ${{ steps.toolchain.outputs.gcc_version }}
       id: switch-gcc
       if: ${{ inputs.gcc_switch == 'true' }}
       uses: Grinch27/github-actions/.github/actions/switch-gcc@main
       with:
-        gcc_version: ${{ inputs.gcc_version }}
+        gcc_version: ${{ steps.toolchain.outputs.gcc_version }}
 
     - name: (Purge) Existing Clang
       id: purge-clang
       if: ${{ inputs.clang_purge == 'true' }}
       uses: Grinch27/github-actions/.github/actions/purge-clang@main
 
-    - name: (Setup) Clang - ${{ inputs.clang_version }}
+    - name: (Setup) Clang - ${{ steps.toolchain.outputs.clang_version }}
       id: setup-clang
       if: ${{ inputs.clang_install == 'true' }}
       uses: Grinch27/github-actions/.github/actions/setup-clang@main
+      with:
+        clang_version: ${{ steps.toolchain.outputs.clang_version }}
 
-    - name: (Switch) Installed Clang - ${{ inputs.clang_version }}
+    - name: (Switch) Installed Clang - ${{ steps.toolchain.outputs.clang_version }}
       id: switch-clang
       if: ${{ inputs.clang_switch == 'true' }}
       uses: Grinch27/github-actions/.github/actions/switch-clang@main
       with:
-        clang_version: ${{ inputs.clang_version }}
+        clang_version: ${{ steps.toolchain.outputs.clang_version }}
 
-    - name: (Switch) AArch64 Cross-Compiler - ${{ inputs.gcc_version }}
+    - name: (Switch) AArch64 Cross-Compiler - ${{ steps.toolchain.outputs.gcc_version }}
       id: switch-gcc_aarch64
       if: ${{ inputs.gcc_aarch64 == 'true' }}
       uses: Grinch27/github-actions/.github/actions/switch-gcc_aarch64@main
       with:
-        gcc_version: ${{ inputs.gcc_version }}
+        gcc_version: ${{ steps.toolchain.outputs.gcc_version }}
 
     - name: (Purge) JDK
       id: purge-jdk
       if: ${{ inputs.jdk_purge == 'true' }}
       uses: Grinch27/github-actions/.github/actions/purge-jdk@main
 
-    - name: (Setup) JDK - ${{ inputs.jdk_version }}
+    - name: (Setup) JDK - ${{ steps.toolchain.outputs.jdk_version }}
       id: setup-jdk
       if: ${{ inputs.jdk_install == 'true' }}
       uses: actions/setup-java@main
       with:
         distribution: "temurin"
-        java-version: ${{ inputs.jdk_version }}
+        java-version: ${{ steps.toolchain.outputs.jdk_version }}
 
     - name: (Setup) Docker
       id: setup-docker
