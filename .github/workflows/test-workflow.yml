@@ -1,0 +1,43 @@
+name: Test Workflow
+
+run-name: Test ${{ inputs.action }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action ref: owner/repo/path@ref"
+        required: true
+        default: "Grinch27/github-actions/.github/actions/resolve-toolchain-version@main"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare action
+        shell: bash
+        env:
+          ACTION: ${{ inputs.action }}
+        run: |
+          set -euo pipefail
+
+          spec="${ACTION%@*}"
+          ref="${ACTION##*@}"
+          repo="$(printf '%s\n' "$spec" | cut -d/ -f1-2)"
+          path="$(printf '%s\n' "$spec" | cut -d/ -f3-)"
+
+          test "$spec" != "$ACTION"
+          test -n "$repo"
+          test -n "$path"
+          test -n "$ref"
+
+          git clone --depth 1 --branch "$ref" "https://github.com/${repo}.git" _repo
+          cp -a "_repo/${path}" _action
+
+      - name: Run action
+        id: action
+        uses: ./_action
