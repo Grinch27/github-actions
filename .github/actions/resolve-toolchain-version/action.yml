@@ -160,15 +160,30 @@ runs:
           python3 - "$channel" "$adoptium_arch" <<'PY'
         import json
         import sys
+        import urllib.error
         import urllib.request
 
         channel = sys.argv[1]
         architecture = sys.argv[2]
+        headers = {
+            "User-Agent": "github-actions-resolve-toolchain-version/1.0",
+            "Accept": "application/json",
+        }
+
+        def fetch_json(url):
+            request = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return json.load(response)
+
         if channel not in ("feature", "lts"):
             raise SystemExit(f"Unsupported jdk_channel: {channel}")
 
-        with urllib.request.urlopen("https://api.adoptium.net/v3/info/available_releases", timeout=30) as response:
-            info = json.load(response)
+        try:
+            info = fetch_json("https://api.adoptium.net/v3/info/available_releases")
+        except urllib.error.HTTPError as exc:
+            raise SystemExit(f"Adoptium API returned HTTP {exc.code} for available_releases.")
+        except Exception as exc:
+            raise SystemExit(f"Adoptium API request failed for available_releases: {exc}")
 
         key = "available_lts_releases" if channel == "lts" else "available_releases"
         releases = sorted({int(item) for item in info.get(key, [])}, reverse=True)
@@ -178,8 +193,7 @@ runs:
                 f"?architecture={architecture}&image_type=jdk&jvm_impl=hotspot&os=linux&vendor=eclipse"
             )
             try:
-                with urllib.request.urlopen(url, timeout=30) as response:
-                    assets = json.load(response)
+                assets = fetch_json(url)
             except Exception:
                 continue
             if assets:
@@ -219,7 +233,10 @@ runs:
           case "$INPUT_JDK_SOURCE" in
             temurin)
               command -v python3 >/dev/null 2>&1 || fail "python3 is required for Temurin JDK resolution."
-              jdk_version="$(latest_temurin_jdk "$INPUT_JDK_CHANNEL")"
+              if ! jdk_version="$(latest_temurin_jdk "$INPUT_JDK_CHANNEL")"; then
+                printf '::warning::Temurin JDK version resolution failed; fallback to apt openjdk-N-jdk resolution.\n' >&2
+                jdk_version="$(latest_openjdk_from_apt)" || fail "No installable Temurin JDK release found and no installable openjdk-N-jdk package candidate found."
+              fi
               ;;
             apt)
               jdk_version="$(latest_openjdk_from_apt)" || fail "No installable openjdk-N-jdk package candidate found."
