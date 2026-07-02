@@ -22,11 +22,17 @@ jobs:
     steps:
       - name: Resolve runner
         id: runner
-        uses: Grinch27/github-actions/.github/actions/resolve-toolchain-version@main
+        uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
+
+      - name: Print resolved runner
+        shell: bash
+        run: |
+          printf 'runs_on=%s\n' "${{ steps.runner.outputs.runs_on }}"
+          test -n "${{ steps.runner.outputs.runs_on }}"
 
   test:
     needs: resolve
-    runs-on: ${{ needs.resolve.outputs.runs_on }}
+    runs-on: ${{ needs.resolve.outputs.runs_on || 'ubuntu-latest' }}
     steps:
       - name: Prepare action
         shell: bash
@@ -51,3 +57,12 @@ jobs:
       - name: Run action
         id: action
         uses: ./_action
+
+      - name: Print outputs
+        shell: bash
+        run: |
+          printf 'runs_on=%s\n' "${{ needs.resolve.outputs.runs_on }}"
+          printf 'gcc_version=%s\n' "${{ steps.action.outputs.gcc_version }}"
+          printf 'clang_version=%s\n' "${{ steps.action.outputs.clang_version }}"
+          printf 'jdk_version=%s\n' "${{ steps.action.outputs.jdk_version }}"
+          printf 'custom_env=%s\n' "${{ steps.action.outputs.custom_env }}"
