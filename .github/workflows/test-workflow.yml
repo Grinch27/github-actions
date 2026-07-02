@@ -1,6 +1,6 @@
 name: Test Workflow
 
-run-name: Test ${{ inputs.action }}
+run-name: Test ${{ inputs.action || '' }}
 
 on:
   push:
@@ -8,6 +8,8 @@ on:
       - main
     paths:
       - ".github/workflows/test-workflow.yml"
+      - ".github/actions/resolve-runner-image/**"
+      - ".github/actions/resolve-toolchain-version/**"
   workflow_dispatch:
     inputs:
       action:
@@ -19,6 +21,9 @@ on:
 permissions:
   contents: read
 
+env:
+  ACTION: ${{ inputs.action || 'Grinch27/github-actions/.github/actions/resolve-toolchain-version@main' }}
+
 jobs:
   runner:
     runs-on: ubuntu-latest
@@ -29,12 +34,6 @@ jobs:
         id: runner
         uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
 
-      - name: Print resolved runner
-        shell: bash
-        run: |
-          printf 'runs_on=%s\n' "${{ steps.runner.outputs.runs_on }}"
-          test -n "${{ steps.runner.outputs.runs_on }}"
-
   action:
     needs: runner
     runs-on: ${{ needs.runner.outputs.runs_on || 'ubuntu-latest' }}
@@ -42,7 +41,7 @@ jobs:
       - name: Prepare action
         shell: bash
         env:
-          ACTION: ${{ inputs.action }}
+          ACTION: ${{ env.ACTION }}
         run: |
           set -euo pipefail
 
