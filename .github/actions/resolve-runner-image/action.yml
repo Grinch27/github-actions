@@ -11,7 +11,7 @@ inputs:
 outputs:
   runs_on:
     description: "Resolved runs-on label, for example ubuntu-26.04"
-    value: ${{ steps.resolve.outputs.runs_on }}
+    value: ${{ steps.resolve.outputs.runs_on || 'ubuntu-latest' }}
 
 runs:
   using: composite
@@ -33,7 +33,7 @@ runs:
         req = urllib.request.Request(
             url,
             headers={
-                "User-Agent": "github-actions-resolve-runner-image/1.0",
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
                 "Accept": "text/plain",
             },
         )
