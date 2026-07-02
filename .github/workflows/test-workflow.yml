@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: Resolve runner
         id: runner
-        uses: ./.github/actions/resolve-runner-image
+        uses: Grinch27/github-actions/.github/actions/resolve-toolchain-version@main
 
   test:
     needs: resolve
