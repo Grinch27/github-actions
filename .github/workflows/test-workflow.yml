@@ -7,7 +7,7 @@ on:
     inputs:
       action:
         description: "Action ref: owner/repo/path@ref"
-        required: true
+        required: false
         default: "Grinch27/github-actions/.github/actions/resolve-toolchain-version@main"
         type: string
 
