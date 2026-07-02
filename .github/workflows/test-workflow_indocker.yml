@@ -1,4 +1,4 @@
-name: (Test) Workflow
+name: (Test-Docker) Workflow
 
 run-name: Workflow ${{ inputs.action || '' }}
 
@@ -7,7 +7,7 @@ on:
     branches:
       - main
     paths:
-      - ".github/workflows/test-workflow.yml"
+      - ".github/workflows/test-workflow_indocker.yml"
       - ".github/actions/resolve-runner-image/**"
       - ".github/actions/resolve-toolchain-version/**"
   workflow_dispatch:
@@ -41,25 +41,49 @@ jobs:
     defaults:
       run:
         shell: bash
+    container:
+      image: ubuntu:devel
+      options: >-
+        --privileged
+        --user=0:0
+        --pid=host
+        --ipc=host
+        --uts=host
+        --cgroupns=host
+        --cap-add=ALL
+        --security-opt apparmor=unconfined
+        --security-opt seccomp=unconfined
+      volumes:
+        - /dev:/dev
+        - /sys:/sys:ro
+        - /sys/fs/cgroup:/sys/fs/cgroup
+        - /run/udev:/run/udev:ro
+        - /lib/modules:/lib/modules:ro
     env:
       DEBIAN_FRONTEND: noninteractive
-      # FORCE_UNSAFE_CONFIGURE: "1"
+      FORCE_UNSAFE_CONFIGURE: "1"
     steps:
       - name: Prepare action
         id: action-clone
-        shell: bash
         env:
           ACTION: ${{ env.ACTION }}
         run: |
           set -euo pipefail
+
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git python3
+          update-ca-certificates
+
           spec="${ACTION%@*}"
           ref="${ACTION##*@}"
           repo="$(cut -d/ -f1-2 <<< "$spec")"
           path="$(cut -d/ -f3- <<< "$spec")"
+
           test "$spec" != "$ACTION"
           test -n "$repo"
           test -n "$path"
           test -n "$ref"
+
           git clone --depth 1 --branch "$ref" "https://github.com/${repo}.git" _repo
           cp -a "_repo/${path}" _action
 
