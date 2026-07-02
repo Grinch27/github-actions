@@ -19,96 +19,93 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Resolve latest installable toolchain versions
+    - name: Resolve toolchain versions
       id: resolve
       shell: bash
       run: |
-        # Key decisions needing confirmation:
-        # - Always resolve the latest installable versions from the current apt environment.
-        # - JDK is resolved from openjdk-N-jdk packages in apt.
-        # Ambiguities:
-        # - This action does not accept explicit version overrides.
-        # Follow-up research:
-        # - Add non-apt sources only if downstream workflows require them.
-        # Risks and verification focus:
-        # - apt repository drift changes outputs between runs.
         set -euo pipefail
 
-        fail() {
-          printf '::error::%s\n' "$*" >&2
-          exit 1
-        }
+        python3 <<'PY'
+        import os
+        import re
+        import shutil
+        import subprocess
+        import sys
 
-        as_root() {
-          if [ "$(id -u)" -eq 0 ]; then
-            "$@"
-          else
-            sudo -E "$@"
-          fi
-        }
+        def fail(message):
+            print(f"::error::{message}", file=sys.stderr)
+            raise SystemExit(1)
 
-        apt_has_candidate() {
-          local package="$1"
-          local candidate
-          candidate="$(apt-cache policy "$package" | awk '/Candidate:/ {print $2; exit}')"
-          [ -n "$candidate" ] && [ "$candidate" != "(none)" ]
-        }
+        def need(command):
+            if not shutil.which(command):
+                fail(f"{command} is required.")
 
-        latest_major_from_apt() {
-          local prefix="$1"
-          local version
-          local package
-          while IFS= read -r version; do
-            package="${prefix}-${version}"
-            if apt_has_candidate "$package"; then
-              printf '%s\n' "$version"
-              return 0
-            fi
-          done < <(
-            apt-cache search --names-only "^${prefix}-[0-9]+$" |
-              awk '{print $1}' |
-              sed -nE "s/^${prefix}-([0-9]+)$/\1/p" |
-              sort -nr
-          )
-          return 1
-        }
+        def run(args):
+            return subprocess.run(args, check=True, text=True, capture_output=True).stdout
 
-        latest_openjdk_from_apt() {
-          local version
-          local package
-          while IFS= read -r version; do
-            package="openjdk-${version}-jdk"
-            if apt_has_candidate "$package"; then
-              printf '%s\n' "$version"
-              return 0
-            fi
-          done < <(
-            apt-cache search --names-only '^openjdk-[0-9]+-jdk$' |
-              awk '{print $1}' |
-              sed -nE 's/^openjdk-([0-9]+)-jdk$/\1/p' |
-              sort -nr
-          )
-          return 1
-        }
+        def apt_update():
+            command = ["apt-get", "-yqq", "update"]
+            if os.geteuid() != 0:
+                need("sudo")
+                command = ["sudo", "-E", *command]
+            subprocess.run(command, check=True)
 
-        command -v apt-get >/dev/null 2>&1 || fail "apt-get is required."
-        command -v apt-cache >/dev/null 2>&1 || fail "apt-cache is required."
-        command -v awk >/dev/null 2>&1 || fail "awk is required."
-        command -v sed >/dev/null 2>&1 || fail "sed is required."
-        command -v sort >/dev/null 2>&1 || fail "sort is required."
+        def has_candidate(package):
+            output = run(["apt-cache", "policy", package])
+            match = re.search(r"^\s*Candidate:\s*(\S+)", output, re.MULTILINE)
+            return bool(match and match.group(1) != "(none)")
 
-        as_root apt-get -yqq update
+        def latest(pattern, regex, package_name):
+            output = run(["apt-cache", "search", "--names-only", pattern])
+            versions = set()
 
-        gcc_version="$(latest_major_from_apt gcc)" || fail "No installable gcc-N package candidate found."
-        clang_version="$(latest_major_from_apt clang)" || fail "No installable clang-N package candidate found."
-        jdk_version="$(latest_openjdk_from_apt)" || fail "No installable openjdk-N-jdk package candidate found."
-        custom_env="gcc_version=${gcc_version};clang_version=${clang_version};jdk_version=${jdk_version}"
+            for line in output.splitlines():
+                name = line.split(maxsplit=1)[0] if line else ""
+                match = regex.fullmatch(name)
+                if match:
+                    versions.add(int(match.group(1)))
 
-        {
-          printf 'gcc_version=%s\n' "$gcc_version"
-          printf 'clang_version=%s\n' "$clang_version"
-          printf 'jdk_version=%s\n' "$jdk_version"
-          printf 'custom_env=%s\n' "$custom_env"
-        } >> "$GITHUB_OUTPUT"
+            for version in sorted(versions, reverse=True):
+                package = package_name(version)
+                if has_candidate(package):
+                    return str(version)
 
-        printf 'Resolved toolchain versions: gcc=%s clang=%s jdk=%s\n' "$gcc_version" "$clang_version" "$jdk_version"
+            fail(f"No installable package candidate found for pattern: {pattern}")
+
+        for command in ("apt-get", "apt-cache"):
+            need(command)
+
+        apt_update()
+
+        gcc_version = latest(
+            r"^gcc-[0-9]+$",
+            re.compile(r"gcc-([0-9]+)"),
+            lambda version: f"gcc-{version}",
+        )
+
+        clang_version = latest(
+            r"^clang-[0-9]+$",
+            re.compile(r"clang-([0-9]+)"),
+            lambda version: f"clang-{version}",
+        )
+
+        jdk_version = latest(
+            r"^openjdk-[0-9]+-jdk$",
+            re.compile(r"openjdk-([0-9]+)-jdk"),
+            lambda version: f"openjdk-{version}-jdk",
+        )
+
+        custom_env = f"gcc_version={gcc_version};clang_version={clang_version};jdk_version={jdk_version}"
+
+        lines = [
+            f"gcc_version={gcc_version}",
+            f"clang_version={clang_version}",
+            f"jdk_version={jdk_version}",
+            f"custom_env={custom_env}",
+        ]
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+            output.write("\n".join(lines) + "\n")
+
+        print(f"Resolved toolchain versions: gcc={gcc_version} clang={clang_version} jdk={jdk_version}")
+        PY
