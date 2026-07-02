@@ -132,7 +132,7 @@ runs:
       env:
         NEED_GCC: ${{ inputs.gcc_install == 'true' || inputs.gcc_switch == 'true' || inputs.gcc_aarch64 == 'true' }}
         NEED_CLANG: ${{ inputs.clang_install == 'true' || inputs.clang_switch == 'true' }}
-        NEED_JDK: ${{ inputs.jdk_install == 'true' }}
+        NEED_JDK: ${{ inputs.jdk_install == 'true' || inputs.jdk_switch == 'true' }}
         GCC_VERSION: ${{ inputs.gcc_version || steps.resolve-toolchain.outputs.gcc_version }}
         CLANG_VERSION: ${{ inputs.clang_version || steps.resolve-toolchain.outputs.clang_version }}
         JDK_VERSION: ${{ inputs.jdk_version || steps.resolve-toolchain.outputs.jdk_version }}
@@ -144,17 +144,9 @@ runs:
           exit 1
         }
 
-        if [ "$NEED_GCC" = "true" ] && [ -z "$GCC_VERSION" ]; then
-          fail "gcc_version is required but could not be resolved."
-        fi
-
-        if [ "$NEED_CLANG" = "true" ] && [ -z "$CLANG_VERSION" ]; then
-          fail "clang_version is required but could not be resolved."
-        fi
-
-        if [ "$NEED_JDK" = "true" ] && [ -z "$JDK_VERSION" ]; then
-          fail "jdk_version is required but could not be resolved."
-        fi
+        [ "$NEED_GCC" != "true" ] || [ -n "$GCC_VERSION" ] || fail "gcc_version is required but could not be resolved."
+        [ "$NEED_CLANG" != "true" ] || [ -n "$CLANG_VERSION" ] || fail "clang_version is required but could not be resolved."
+        [ "$NEED_JDK" != "true" ] || [ -n "$JDK_VERSION" ] || fail "jdk_version is required but could not be resolved."
 
         {
           printf 'gcc_version=%s\n' "$GCC_VERSION"
@@ -178,7 +170,7 @@ runs:
 
     - name: (Switch) Installed GCC - ${{ steps.toolchain.outputs.gcc_version }}
       id: switch-gcc
-      if: ${{ inputs.gcc_switch == 'true' }}
+      if: ${{ inputs.gcc_install == 'true' || inputs.gcc_switch == 'true' }}
       uses: Grinch27/github-actions/.github/actions/switch-gcc@main
       with:
         gcc_version: ${{ steps.toolchain.outputs.gcc_version }}
@@ -197,7 +189,7 @@ runs:
 
     - name: (Switch) Installed Clang - ${{ steps.toolchain.outputs.clang_version }}
       id: switch-clang
-      if: ${{ inputs.clang_switch == 'true' }}
+      if: ${{ inputs.clang_install == 'true' || inputs.clang_switch == 'true' }}
       uses: Grinch27/github-actions/.github/actions/switch-clang@main
       with:
         clang_version: ${{ steps.toolchain.outputs.clang_version }}
@@ -216,7 +208,7 @@ runs:
 
     - name: (Setup) JDK - ${{ steps.toolchain.outputs.jdk_version }}
       id: setup-jdk
-      if: ${{ inputs.jdk_install == 'true' }}
+      if: ${{ inputs.jdk_install == 'true' || inputs.jdk_switch == 'true' }}
       uses: actions/setup-java@main
       with:
         distribution: "temurin"
@@ -236,6 +228,7 @@ runs:
 
     - name: (Check) toolchain
       id: check-toolchain
+      if: ${{ inputs.gcc_install == 'true' || inputs.gcc_switch == 'true' }}
       uses: Grinch27/github-actions/.github/actions/check-toolchain@main
 
     # ========== General Environment Setup: End ==========
