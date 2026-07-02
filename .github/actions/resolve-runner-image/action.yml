@@ -1,163 +1,56 @@
 name: Resolve Runner Image
-description: Resolve the latest supported GitHub Actions Ubuntu x64 runs-on label from actions/runner-images
+description: Resolve the latest explicit Ubuntu x64 GitHub Actions runs-on label
 author: "Grinch27"
 
 inputs:
-  os:
-    description: "Runner OS family. Currently only ubuntu is supported."
-    required: false
-    default: "ubuntu"
-  architecture:
-    description: "Runner architecture. amd64 is normalized to x64."
-    required: false
-    default: "x64"
-  include_preview:
-    description: "Include preview/beta images when selecting the highest Ubuntu version."
-    required: false
-    default: "true"
   source_url:
-    description: "runner-images README raw URL."
+    description: "actions/runner-images README raw URL"
     required: false
     default: "https://raw.githubusercontent.com/actions/runner-images/main/README.md"
 
 outputs:
   runs_on:
-    description: "Resolved runs-on label."
+    description: "Resolved runs-on label, for example ubuntu-26.04"
     value: ${{ steps.resolve.outputs.runs_on }}
-  label:
-    description: "Resolved runner label."
-    value: ${{ steps.resolve.outputs.label }}
-  ubuntu_version:
-    description: "Resolved Ubuntu version."
-    value: ${{ steps.resolve.outputs.ubuntu_version }}
-  architecture:
-    description: "Resolved architecture."
-    value: ${{ steps.resolve.outputs.architecture }}
-  source_url:
-    description: "Source URL used for resolution."
-    value: ${{ steps.resolve.outputs.source_url }}
-  is_preview:
-    description: "Whether the selected image appears to be preview/beta."
-    value: ${{ steps.resolve.outputs.is_preview }}
-  all_labels:
-    description: "Comma-separated candidate labels considered."
-    value: ${{ steps.resolve.outputs.all_labels }}
 
 runs:
   using: composite
   steps:
-    - name: Resolve latest Ubuntu runner image
+    - name: Resolve runner
       id: resolve
       shell: bash
       env:
-        INPUT_OS: ${{ inputs.os }}
-        INPUT_ARCHITECTURE: ${{ inputs.architecture }}
-        INPUT_INCLUDE_PREVIEW: ${{ inputs.include_preview }}
-        INPUT_SOURCE_URL: ${{ inputs.source_url }}
+        SOURCE_URL: ${{ inputs.source_url }}
       run: |
-        # Key decisions needing confirmation:
-        # - "latest" means highest explicit Ubuntu version label, not ubuntu-latest.
-        # - Preview images are included by default because the goal is to discover the newest supported label.
-        # Ambiguities:
-        # - GitHub may list preview labels before GA; callers must decide whether preview is acceptable.
-        # Follow-up research:
-        # - If GitHub publishes a machine-readable runner label endpoint later, replace README scraping with that endpoint.
-        # Risks and verification focus:
-        # - README format drift can break parsing; validate against actions/runner-images main.
-        set -Eeuo pipefail
+        set -euo pipefail
 
-        fail() {
-          printf '::error::%s\n' "$*" >&2
-          exit 1
-        }
-
-        os_name="$(printf '%s' "${INPUT_OS}" | tr '[:upper:]' '[:lower:]')"
-        arch="$(printf '%s' "${INPUT_ARCHITECTURE}" | tr '[:upper:]' '[:lower:]')"
-
-        case "$os_name" in
-          ubuntu) ;;
-          *) fail "Only os=ubuntu is currently supported." ;;
-        esac
-
-        case "$arch" in
-          amd64|x86_64) arch="x64" ;;
-          x64) arch="x64" ;;
-          arm64|aarch64) arch="arm64" ;;
-          *) fail "Unsupported architecture: ${INPUT_ARCHITECTURE}" ;;
-        esac
-
-        case "${INPUT_INCLUDE_PREVIEW}" in
-          true|false) ;;
-          *) fail "include_preview must be true or false." ;;
-        esac
-
-        command -v python3 >/dev/null 2>&1 || fail "python3 is required."
-
-        python3 - "$INPUT_SOURCE_URL" "$arch" "$INPUT_INCLUDE_PREVIEW" <<'PY' >> "$GITHUB_OUTPUT"
+        python3 - "$SOURCE_URL" <<'PY' >> "$GITHUB_OUTPUT"
         import re
         import sys
         import urllib.request
 
-        source_url = sys.argv[1]
-        architecture = sys.argv[2]
-        include_preview = sys.argv[3] == "true"
-
-        headers = {
-            "User-Agent": "github-actions-resolve-runner-image/1.0",
-            "Accept": "text/plain",
-        }
-
-        request = urllib.request.Request(source_url, headers=headers)
-        with urllib.request.urlopen(request, timeout=30) as response:
-            text = response.read().decode("utf-8", errors="replace")
-
-        candidates = {}
-        for line in text.splitlines():
-            lower = line.lower()
-            if "ubuntu" not in lower:
-                continue
-            if architecture == "x64":
-                if "x64" not in lower:
-                    continue
-                label_matches = [
-                    item for item in re.findall(r"ubuntu-[0-9]{2}\.[0-9]{2}(?:-arm)?", line)
-                    if not item.endswith("-arm")
-                ]
-            else:
-                if "arm64" not in lower:
-                    continue
-                label_matches = re.findall(r"ubuntu-[0-9]{2}\.[0-9]{2}-arm", line)
-
-            if not label_matches:
-                continue
-
-            is_preview = "preview" in lower or "beta" in lower
-            if is_preview and not include_preview:
-                continue
-
-            for label in label_matches:
-                version_match = re.search(r"ubuntu-([0-9]{2}\.[0-9]{2})", label)
-                if not version_match:
-                    continue
-                version = version_match.group(1)
-                key = (tuple(int(part) for part in version.split(".")), label)
-                candidates[key] = (version, label, is_preview)
-
-        if not candidates:
-            raise SystemExit(f"No Ubuntu {architecture} runner image label found in {source_url}")
-
-        ordered = sorted(
-            ((key[0], version, label, is_preview) for key, (version, label, is_preview) in candidates.items()),
-            reverse=True,
+        url = sys.argv[1]
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "github-actions-resolve-runner-image/1.0",
+                "Accept": "text/plain",
+            },
         )
-        _, version, label, is_preview = ordered[0]
-        all_labels = ",".join(item[2] for item in ordered)
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            text = resp.read().decode("utf-8", "replace")
 
-        print(f"runs_on={label}")
-        print(f"label={label}")
-        print(f"ubuntu_version={version}")
-        print(f"architecture={architecture}")
-        print(f"source_url={source_url}")
-        print(f"is_preview={'true' if is_preview else 'false'}")
-        print(f"all_labels={all_labels}")
+        items = []
+        for line in text.splitlines():
+            if "Ubuntu" not in line or "x64" not in line:
+                continue
+            for label in re.findall(r"`(ubuntu-[0-9]{2}\.[0-9]{2})`", line):
+                version = label.removeprefix("ubuntu-")
+                items.append((tuple(map(int, version.split("."))), label))
+
+        if not items:
+            raise SystemExit("No Ubuntu x64 runner label found.")
+
+        items.sort(reverse=True)
+        print(f"runs_on={items[0][1]}")
         PY

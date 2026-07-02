@@ -15,8 +15,18 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  resolve:
     runs-on: ubuntu-latest
+    outputs:
+      runs_on: ${{ steps.runner.outputs.runs_on }}
+    steps:
+      - name: Resolve runner
+        id: runner
+        uses: ./.github/actions/resolve-runner-image
+
+  test:
+    needs: resolve
+    runs-on: ${{ needs.resolve.outputs.runs_on }}
     steps:
       - name: Prepare action
         shell: bash
