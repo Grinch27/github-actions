@@ -9,9 +9,9 @@ inputs:
     default: "https://raw.githubusercontent.com/actions/runner-images/main/README.md"
 
 outputs:
-  runs_on:
+  runner_image:
     description: "Resolved runs-on label, for example ubuntu-26.04"
-    value: ${{ steps.resolve.outputs.runs_on || 'ubuntu-latest' }}
+    value: ${{ steps.resolve.outputs.runner_image || 'ubuntu-latest' }}
 
 runs:
   using: composite
@@ -52,5 +52,5 @@ runs:
             raise SystemExit("No Ubuntu x64 runner label found.")
 
         items.sort(reverse=True)
-        print(f"runs_on={items[0][1]}")
+        print(f"runner_image={items[0][1]}")
         PY

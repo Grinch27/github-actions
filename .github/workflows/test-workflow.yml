@@ -1,5 +1,8 @@
 name: (Test) Workflow
 
+# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
+# https://docs.github.com/en/actions/reference/workflows-and-actions/metadata-syntax
+
 run-name: Workflow ${{ inputs.action || '' }}
 
 on:
@@ -26,17 +29,19 @@ env:
 
 jobs:
   runner-image:
+    name: Resolve runner-image
     runs-on: ubuntu-latest
     outputs:
-      runs_on: ${{ steps.resolve-runner-image.outputs.runs_on }}
+      runner_image: ${{ steps.resolve-runner-image.outputs.runner_image }}
     steps:
       - name: Resolve runner-image
         id: resolve-runner-image
         uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
 
   action:
+    name: ${{ needs.runner-image.outputs.runner_image }}
     needs: runner-image
-    runs-on: ${{ needs.runner-image.outputs.runs_on || 'ubuntu-latest' }}
+    runs-on: ${{ needs.runner-image.outputs.runner_image }}
     permissions: write-all
     defaults:
       run:
