@@ -229,6 +229,7 @@ runs:
     - name: (Check) toolchain
       id: check-toolchain
       if: ${{ inputs.gcc_install == 'true' || inputs.gcc_switch == 'true' }}
+      continue-on-error: true
       uses: Grinch27/github-actions/.github/actions/check-toolchain@main
 
     # ========== General Environment Setup: End ==========
