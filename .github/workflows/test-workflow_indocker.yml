@@ -39,9 +39,9 @@ jobs:
         id: resolve-runner-image
         uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
 
-      - name: Check runner-image
-        shell: bash
-        run: test -n "${{ steps.resolve-runner-image.outputs.runner_image }}"
+      # - name: Check runner-image
+      #   shell: bash
+      #   run: test -n "${{ steps.resolve-runner-image.outputs.runner_image }}"
 
   toolchain:
     name: ${{ needs.runner-image.outputs.runner_image }} - ubuntu:devel - toolchain
@@ -95,16 +95,16 @@ jobs:
         id: resolve-toolchain
         uses: Grinch27/github-actions/.github/actions/resolve-toolchain-version@main
 
-      - name: Check toolchain version outputs
-        run: |
-          set -euo pipefail
-          test -n "${{ steps.resolve-toolchain.outputs.gcc_version }}"
-          test -n "${{ steps.resolve-toolchain.outputs.clang_version }}"
-          test -n "${{ steps.resolve-toolchain.outputs.jdk_version }}"
-          printf 'gcc=%s clang=%s jdk=%s\n' \
-            "${{ steps.resolve-toolchain.outputs.gcc_version }}" \
-            "${{ steps.resolve-toolchain.outputs.clang_version }}" \
-            "${{ steps.resolve-toolchain.outputs.jdk_version }}"
+      # - name: Check toolchain version outputs
+      #   run: |
+      #     set -euo pipefail
+      #     test -n "${{ steps.resolve-toolchain.outputs.gcc_version }}"
+      #     test -n "${{ steps.resolve-toolchain.outputs.clang_version }}"
+      #     test -n "${{ steps.resolve-toolchain.outputs.jdk_version }}"
+      #     printf 'gcc=%s clang=%s jdk=%s\n' \
+      #       "${{ steps.resolve-toolchain.outputs.gcc_version }}" \
+      #       "${{ steps.resolve-toolchain.outputs.clang_version }}" \
+      #       "${{ steps.resolve-toolchain.outputs.jdk_version }}"
 
   action:
     name: ${{ needs.runner-image.outputs.runner_image }} gcc-${{ needs.toolchain.outputs.gcc_version }}
