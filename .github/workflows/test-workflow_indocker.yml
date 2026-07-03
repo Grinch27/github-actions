@@ -39,7 +39,7 @@ jobs:
         shell: bash
         run: test -n "${{ steps.resolve-runner-image.outputs.runner_image }}"
 
-  toolchain-version:
+  toolchain:
     name: Version of toolchain
     needs: runner-image
     runs-on: ${{ needs.runner-image.outputs.runner_image }}
@@ -98,10 +98,10 @@ jobs:
             "${{ steps.resolve-toolchain.outputs.jdk_version }}"
 
   action:
-    name: ${{ needs.runner-image.outputs.runner_image }} gcc-${{ needs.toolchain-version.outputs.gcc_version }}
+    name: ${{ needs.runner-image.outputs.runner_image }} gcc-${{ needs.toolchain.outputs.gcc_version }}
     needs:
       - runner-image
-      - toolchain-version
+      - toolchain
     runs-on: ${{ needs.runner-image.outputs.runner_image }}
     permissions: write-all
     defaults:
@@ -181,16 +181,16 @@ jobs:
           gcc_purge: "false"
           gcc_install: "true"
           gcc_switch: "false"
-          gcc_version: ${{ needs.toolchain-version.outputs.gcc_version }}
+          gcc_version: ${{ needs.toolchain.outputs.gcc_version }}
           gcc_aarch64: "false"
           clang_purge: "false"
           clang_install: "false"
           clang_switch: "false"
-          clang_version: ${{ needs.toolchain-version.outputs.clang_version }}
+          clang_version: ${{ needs.toolchain.outputs.clang_version }}
           jdk_purge: "false"
           jdk_install: "false"
           jdk_switch: "false"
-          jdk_version: ${{ needs.toolchain-version.outputs.jdk_version }}
+          jdk_version: ${{ needs.toolchain.outputs.jdk_version }}
           docker_install: "false"
           qemu_install: "false"
           purge_snap: "false"
