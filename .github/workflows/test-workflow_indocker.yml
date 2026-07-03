@@ -15,14 +15,14 @@ on:
       action:
         description: "Action ref: owner/repo/path@ref"
         required: false
-        default: "Grinch27/github-actions/.github/actions/resolve-toolchain-version@main"
+        default: "Grinch27/github-actions/.github/actions/env-toolchain@main"
         type: string
 
 permissions:
   contents: read
 
 env:
-  ACTION: ${{ inputs.action || 'Grinch27/github-actions/.github/actions/resolve-toolchain-version@main' }}
+  ACTION: ${{ inputs.action || 'Grinch27/github-actions/.github/actions/env-toolchain@main' }}
 
 jobs:
   runner-image:
@@ -35,9 +35,73 @@ jobs:
         id: resolve-runner-image
         uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
 
-  action:
-    name: ${{ needs.runner-image.outputs.runner_image }}
+      - name: Check runner-image
+        shell: bash
+        run: test -n "${{ steps.resolve-runner-image.outputs.runner_image }}"
+
+  toolchain-version:
+    name: Resolve toolchain versions
     needs: runner-image
+    runs-on: ${{ needs.runner-image.outputs.runner_image || 'ubuntu-latest' }}
+    outputs:
+      gcc_version: ${{ steps.resolve-toolchain.outputs.gcc_version }}
+      clang_version: ${{ steps.resolve-toolchain.outputs.clang_version }}
+      jdk_version: ${{ steps.resolve-toolchain.outputs.jdk_version }}
+      custom_env: ${{ steps.resolve-toolchain.outputs.custom_env }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    container:
+      image: ubuntu:devel
+      options: >-
+        --privileged
+        --user=0:0
+        --pid=host
+        --ipc=host
+        --uts=host
+        --cgroupns=host
+        --cap-add=ALL
+        --security-opt apparmor=unconfined
+        --security-opt seccomp=unconfined
+      volumes:
+        - /dev:/dev
+        - /sys:/sys:ro
+        - /sys/fs/cgroup:/sys/fs/cgroup
+        - /run/udev:/run/udev:ro
+        - /lib/modules:/lib/modules:ro
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      FORCE_UNSAFE_CONFIGURE: "1"
+    steps:
+      - name: Bootstrap resolver runtime
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates python3
+          update-ca-certificates
+
+      - name: Resolve toolchain versions
+        id: resolve-toolchain
+        uses: Grinch27/github-actions/.github/actions/resolve-toolchain-version@main
+
+      - name: Check toolchain version outputs
+        run: |
+          set -euo pipefail
+          test -n "${{ steps.resolve-toolchain.outputs.gcc_version }}"
+          test -n "${{ steps.resolve-toolchain.outputs.clang_version }}"
+          test -n "${{ steps.resolve-toolchain.outputs.jdk_version }}"
+          printf 'gcc=%s clang=%s jdk=%s\n' \
+            "${{ steps.resolve-toolchain.outputs.gcc_version }}" \
+            "${{ steps.resolve-toolchain.outputs.clang_version }}" \
+            "${{ steps.resolve-toolchain.outputs.jdk_version }}"
+
+  action:
+    name: ${{ needs.runner-image.outputs.runner_image }} gcc-${{ needs.toolchain-version.outputs.gcc_version }}
+    needs:
+      - runner-image
+      - toolchain-version
     runs-on: ${{ needs.runner-image.outputs.runner_image }}
     permissions: write-all
     defaults:
@@ -91,4 +155,24 @@ jobs:
 
       - name: Run action
         id: action-run
-        uses: ./_action
+        uses: Grinch27/github-actions/.github/actions/env-toolchain@main
+        # uses: ./_action
+        with:
+          gcc_purge: "false"
+          gcc_install: "true"
+          gcc_switch: "false"
+          gcc_version: ${{ needs.toolchain-version.outputs.gcc_version }}
+          gcc_aarch64: "false"
+          clang_purge: "false"
+          clang_install: "false"
+          clang_switch: "false"
+          clang_version: ${{ needs.toolchain-version.outputs.clang_version }}
+          jdk_purge: "false"
+          jdk_install: "false"
+          jdk_switch: "false"
+          jdk_version: ${{ needs.toolchain-version.outputs.jdk_version }}
+          docker_install: "false"
+          qemu_install: "false"
+          purge_snap: "false"
+          clean_docker_image: "false"
+          clean_runner: "false"
