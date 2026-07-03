@@ -155,7 +155,7 @@ jobs:
 
       - name: Run action
         id: action-run
-        uses: ${{ env.ACTION }}
+        uses: ./_action
         with:
           gcc_purge: "false"
           gcc_install: "true"
