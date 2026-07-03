@@ -26,7 +26,7 @@ env:
 
 jobs:
   runner-image:
-    name: Resolve runner-image
+    name: Version of runner-image
     runs-on: ubuntu-latest
     outputs:
       runner_image: ${{ steps.resolve-runner-image.outputs.runner_image }}
@@ -40,9 +40,9 @@ jobs:
         run: test -n "${{ steps.resolve-runner-image.outputs.runner_image }}"
 
   toolchain-version:
-    name: Resolve toolchain versions
+    name: Version of toolchain
     needs: runner-image
-    runs-on: ${{ needs.runner-image.outputs.runner_image || 'ubuntu-latest' }}
+    runs-on: ${{ needs.runner-image.outputs.runner_image }}
     outputs:
       gcc_version: ${{ steps.resolve-toolchain.outputs.gcc_version }}
       clang_version: ${{ steps.resolve-toolchain.outputs.clang_version }}
