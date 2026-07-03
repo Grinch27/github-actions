@@ -1,5 +1,6 @@
 name: (Test-Docker) Workflow
 
+# Github Actions workflow syntax reference:
 # https://docs.github.com/zh/actions/reference/workflows-and-actions/workflow-syntax
 # https://docs.github.com/zh/actions/reference/workflows-and-actions/metadata-syntax#runs-for-composite-actions
 # https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations#yaml-anchors-and-aliases
@@ -57,8 +58,8 @@ jobs:
       run:
         shell: bash
     container:
-      image: &image_container ubuntu:devel
-      options: &full_container_options >-
+      image: &container_image ubuntu:devel
+      options: &container_options >-
         --privileged
         --user=0:0
         --pid=host
@@ -72,7 +73,7 @@ jobs:
         --pids-limit=-1
         --shm-size=12g
         --ulimit nofile=1048576:1048576
-      volumes: &full_container_volumes
+      volumes: &container_volumes
         - /dev:/dev
         - /sys:/sys:rw
         - /sys/fs/cgroup:/sys/fs/cgroup:rw
@@ -116,23 +117,9 @@ jobs:
       run:
         shell: bash
     container:
-      image: *image_container
-      options: >-
-        --privileged
-        --user=0:0
-        --pid=host
-        --ipc=host
-        --uts=host
-        --cgroupns=host
-        --cap-add=ALL
-        --security-opt apparmor=unconfined
-        --security-opt seccomp=unconfined
-      volumes:
-        - /dev:/dev
-        - /sys:/sys:ro
-        - /sys/fs/cgroup:/sys/fs/cgroup
-        - /run/udev:/run/udev:ro
-        - /lib/modules:/lib/modules:ro
+      image: *container_image
+      options: *container_options
+      volumes: *container_volumes
     env:
       DEBIAN_FRONTEND: noninteractive
       FORCE_UNSAFE_CONFIGURE: "1"
