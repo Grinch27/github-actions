@@ -21,9 +21,13 @@ runs:
         apt list --installed
         dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -n
 
+        set +euo pipefail
+
         echo -e "---------- Verify Make version ----------"
         make --version
 
         echo -e "---------- Verify GCC version ----------"
         gcc --version
         g++ --version
+
+        set -euo pipefail
