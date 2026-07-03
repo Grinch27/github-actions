@@ -15,14 +15,14 @@ on:
       action:
         description: "Action ref: owner/repo/path@ref"
         required: false
-        default: "Grinch27/github-actions/.github/actions/env-toolchain@main"
+        default: "Grinch27/github-actions/.github/actions/check-toolchain@main"
         type: string
 
 permissions:
   contents: read
 
 env:
-  ACTION: ${{ inputs.action || 'Grinch27/github-actions/.github/actions/env-toolchain@main' }}
+  ACTION: ${{ inputs.action || 'Grinch27/github-actions/.github/actions/check-toolchain@main' }}
 
 jobs:
   runner-image:
@@ -153,46 +153,6 @@ jobs:
           git clone --depth 1 --branch "$ref" "https://github.com/${repo}.git" _repo
           cp -a "_repo/${path}" _action
 
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          p = Path("_action/action.yml")
-          text = p.read_text(encoding="utf-8")
-
-          text = re.sub(
-              r"uses:\s+Grinch27/github-actions/\.github/actions/([^@\s]+)@(main|master)",
-              r"uses: ./_repo/.github/actions/\1",
-              text,
-          )
-
-          p.write_text(text, encoding="utf-8")
-          PY
-
-          if grep -nE 'uses: Grinch27/github-actions/\.github/actions/.+@(main|master)' _action/action.yml; then
-            echo "::error::Nested remote github-actions sibling action remains in _action/action.yml"
-            exit 1
-          fi
-
       - name: Run action
         id: action-run
         uses: ./_action
-        with:
-          gcc_purge: "false"
-          gcc_install: "true"
-          gcc_switch: "false"
-          gcc_version: ${{ needs.toolchain.outputs.gcc_version }}
-          gcc_aarch64: "false"
-          clang_purge: "false"
-          clang_install: "false"
-          clang_switch: "false"
-          clang_version: ${{ needs.toolchain.outputs.clang_version }}
-          jdk_purge: "false"
-          jdk_install: "false"
-          jdk_switch: "false"
-          jdk_version: ${{ needs.toolchain.outputs.jdk_version }}
-          docker_install: "false"
-          qemu_install: "false"
-          purge_snap: "false"
-          clean_docker_image: "false"
-          clean_runner: "false"
