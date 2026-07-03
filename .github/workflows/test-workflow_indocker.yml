@@ -80,13 +80,6 @@ jobs:
       DEBIAN_FRONTEND: noninteractive
       FORCE_UNSAFE_CONFIGURE: "1"
     steps:
-      - name: Bootstrap resolver runtime
-        run: |
-          set -euo pipefail
-          apt-get update
-          apt-get install -y --no-install-recommends ca-certificates python3
-          update-ca-certificates
-
       - name: Resolve toolchain versions
         id: resolve-toolchain
         uses: Grinch27/github-actions/.github/actions/resolve-toolchain-version@main
