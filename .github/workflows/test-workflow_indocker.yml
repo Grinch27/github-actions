@@ -56,7 +56,7 @@ jobs:
       run:
         shell: bash
     container:
-      image: ubuntu:devel
+      image: &image_container ubuntu:devel
       options: >-
         --privileged
         --user=0:0
@@ -110,7 +110,7 @@ jobs:
       run:
         shell: bash
     container:
-      image: ubuntu:devel
+      image: *image_container
       options: >-
         --privileged
         --user=0:0
