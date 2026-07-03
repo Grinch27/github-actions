@@ -2,6 +2,7 @@ name: (Test-Docker) Workflow
 
 # https://docs.github.com/zh/actions/reference/workflows-and-actions/workflow-syntax
 # https://docs.github.com/zh/actions/reference/workflows-and-actions/metadata-syntax#runs-for-composite-actions
+# https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations#yaml-anchors-and-aliases
 
 run-name: Workflow ${{ inputs.action || '' }}
 
@@ -57,7 +58,7 @@ jobs:
         shell: bash
     container:
       image: &image_container ubuntu:devel
-      options: >-
+      options: &full_container_options >-
         --privileged
         --user=0:0
         --pid=host
@@ -67,12 +68,17 @@ jobs:
         --cap-add=ALL
         --security-opt apparmor=unconfined
         --security-opt seccomp=unconfined
-      volumes:
+        --init
+        --pids-limit=-1
+        --shm-size=12g
+        --ulimit nofile=1048576:1048576
+      volumes: &full_container_volumes
         - /dev:/dev
-        - /sys:/sys:ro
-        - /sys/fs/cgroup:/sys/fs/cgroup
+        - /sys:/sys:rw
+        - /sys/fs/cgroup:/sys/fs/cgroup:rw
         - /run/udev:/run/udev:ro
         - /lib/modules:/lib/modules:ro
+        - /var/run/docker.sock:/var/run/docker.sock
     env:
       DEBIAN_FRONTEND: noninteractive
       FORCE_UNSAFE_CONFIGURE: "1"
