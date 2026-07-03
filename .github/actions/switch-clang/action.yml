@@ -76,15 +76,15 @@ runs:
         sudo -E systemctl daemon-reload
         df -Th
 
-    - name: Verify
-      id: verify
-      shell: bash
-      working-directory: /
-      env:
-        DEBIAN_FRONTEND: noninteractive
-        clang_version: ${{ inputs.clang_version }}
-      run: |
-        clang --version || true
-        clang-format --version || true
-        clang-tidy --version || true
-        echo "Switched to Clang version ${clang_version}"
+    # - name: Verify
+    #   id: verify
+    #   shell: bash
+    #   working-directory: /
+    #   env:
+    #     DEBIAN_FRONTEND: noninteractive
+    #     clang_version: ${{ inputs.clang_version }}
+    #   run: |
+    #     clang --version || true
+    #     clang-format --version || true
+    #     clang-tidy --version || true
+    #     echo "Switched to Clang version ${clang_version}"
