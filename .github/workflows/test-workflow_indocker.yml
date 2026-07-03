@@ -155,8 +155,7 @@ jobs:
 
       - name: Run action
         id: action-run
-        uses: Grinch27/github-actions/.github/actions/env-toolchain@main
-        # uses: ./_action
+        uses: ./_action
         with:
           gcc_purge: "false"
           gcc_install: "true"
