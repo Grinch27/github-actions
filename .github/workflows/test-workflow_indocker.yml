@@ -1,5 +1,8 @@
 name: (Test-Docker) Workflow
 
+# https://docs.github.com/zh/actions/reference/workflows-and-actions/workflow-syntax
+# https://docs.github.com/zh/actions/reference/workflows-and-actions/metadata-syntax#runs-for-composite-actions
+
 run-name: Workflow ${{ inputs.action || '' }}
 
 on:
@@ -8,8 +11,7 @@ on:
       - main
     paths:
       - ".github/workflows/test-workflow_indocker.yml"
-      - ".github/actions/resolve-runner-image/**"
-      - ".github/actions/resolve-toolchain-version/**"
+      - ".github/actions/**"
   workflow_dispatch:
     inputs:
       action:
@@ -26,7 +28,7 @@ env:
 
 jobs:
   runner-image:
-    name: Version of runner-image
+    name: ubuntu-latest - runner-image
     runs-on: ubuntu-latest
     outputs:
       runner_image: ${{ steps.resolve-runner-image.outputs.runner_image }}
@@ -40,7 +42,7 @@ jobs:
         run: test -n "${{ steps.resolve-runner-image.outputs.runner_image }}"
 
   toolchain:
-    name: Version of toolchain
+    name: ${{ needs.runner-image.outputs.runner_image }} - ubuntu:devel - toolchain
     needs: runner-image
     runs-on: ${{ needs.runner-image.outputs.runner_image }}
     outputs:
