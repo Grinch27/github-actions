@@ -145,16 +145,3 @@ runs:
         sudo -E apt-get -qq clean
         sudo -E systemctl daemon-reload
         df -Th
-
-    # - name: Verify
-    #   id: verify
-    #   shell: bash
-    #   env:
-    #     DEBIAN_FRONTEND: noninteractive
-    #   working-directory: /
-    #   run: |
-    #     echo -e "Current working directory: $(pwd)"
-    #     df -Th
-    #     # 验证版本
-    #     gcc --version
-    #     g++ --version
