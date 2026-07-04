@@ -9,9 +9,9 @@ inputs:
     default: "https://raw.githubusercontent.com/actions/runner-images/main/README.md"
 
 outputs:
-  runner_image:
+  RUNNER_IMAGE:
     description: "Resolved runner image label, for example ubuntu-26.04"
-    value: ${{ steps.resolve.outputs.runner_image }}
+    value: ${{ steps.resolve.outputs.RUNNER_IMAGE }}
 
 runs:
   using: composite
@@ -41,7 +41,7 @@ runs:
                 text = resp.read().decode("utf-8", "replace")
         except Exception as exc:
             print(f"::warning::Failed to fetch runner-images README: {exc}", file=sys.stderr)
-            print("runner_image=ubuntu-latest")
+            print("RUNNER_IMAGE=ubuntu-latest")
             raise SystemExit(0)
 
         labels = set()
@@ -51,13 +51,13 @@ runs:
 
         if not labels:
             print("::warning::No Ubuntu x64 runner image found; falling back to ubuntu-latest.", file=sys.stderr)
-            print("runner_image=ubuntu-latest")
+            print("RUNNER_IMAGE=ubuntu-latest")
             raise SystemExit(0)
 
-        runner_image = max(
+        RUNNER_IMAGE = max(
             labels,
             key=lambda label: tuple(map(int, label.removeprefix("ubuntu-").split("."))),
         )
 
-        print(f"runner_image={runner_image}")
+        print(f"RUNNER_IMAGE={RUNNER_IMAGE}")
         PY
