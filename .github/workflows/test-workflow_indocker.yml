@@ -43,13 +43,7 @@ jobs:
     name: ${{ needs.runner-image.outputs.runner_image }} - ubuntu:devel - toolchain
     needs: runner-image
     runs-on: ${{ needs.runner-image.outputs.runner_image }}
-    outputs:
-      gcc_version: ${{ steps.resolve-toolchain.outputs.gcc_version }}
-      clang_version: ${{ steps.resolve-toolchain.outputs.clang_version }}
-      jdk_version: ${{ steps.resolve-toolchain.outputs.jdk_version }}
-      custom_env: ${{ steps.resolve-toolchain.outputs.custom_env }}
-    permissions:
-      contents: read
+    permissions: write-all
     defaults:
       run:
         shell: bash
@@ -79,6 +73,11 @@ jobs:
     env:
       DEBIAN_FRONTEND: noninteractive
       FORCE_UNSAFE_CONFIGURE: "1"
+    outputs:
+      gcc_version: ${{ steps.resolve-toolchain.outputs.gcc_version }}
+      clang_version: ${{ steps.resolve-toolchain.outputs.clang_version }}
+      jdk_version: ${{ steps.resolve-toolchain.outputs.jdk_version }}
+      custom_env: ${{ steps.resolve-toolchain.outputs.custom_env }}
     steps:
       - name: Resolve toolchain versions
         id: resolve-toolchain
