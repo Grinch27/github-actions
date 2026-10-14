@@ -26,6 +26,18 @@ permissions:
   contents: read
 
 env:
+  DEBIAN_FRONTEND: noninteractive
+  DEBCONF_NONINTERACTIVE_SEEN: "true"
+  APT_LISTCHANGES_FRONTEND: none
+  NEEDRESTART_MODE: a
+  FORCE_UNSAFE_CONFIGURE: "1"
+  TZ: Etc/UTC
+  DISPLAY_TZ: Etc/UTC
+  LANG: C.UTF-8
+  LC_ALL: C.UTF-8
+  GIT_TERMINAL_PROMPT: "0"
+  DOCKER_BUILDKIT: "1"
+  COMPOSE_DOCKER_CLI_BUILD: "1"
   ACTION: ${{ inputs.action || 'Grinch27/github-actions/.github/actions/check-toolchain@main' }}
 
 jobs:
@@ -33,16 +45,16 @@ jobs:
     name: ubuntu-latest - runner-image
     runs-on: ubuntu-latest
     outputs:
-      runner_image: ${{ steps.resolve-runner-image.outputs.runner_image }}
+      RUNNER_IMAGE: ${{ steps.resolve-runner-image.outputs.RUNNER_IMAGE }}
     steps:
       - name: Resolve runner-image
         id: resolve-runner-image
         uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
 
   toolchain:
-    name: ${{ needs.runner-image.outputs.runner_image }} - ubuntu:devel - toolchain
+    name: ${{ needs.runner-image.outputs.RUNNER_IMAGE }} - ubuntu:devel - toolchain
     needs: runner-image
-    runs-on: ${{ needs.runner-image.outputs.runner_image }}
+    runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
     permissions: write-all
     defaults:
       run:
@@ -84,11 +96,11 @@ jobs:
         uses: Grinch27/github-actions/.github/actions/resolve-toolchain-version@main
 
   action:
-    name: ${{ needs.runner-image.outputs.runner_image }} - gcc-${{ needs.toolchain.outputs.gcc_version }}
+    name: ${{ needs.runner-image.outputs.RUNNER_IMAGE }} - gcc-${{ needs.toolchain.outputs.gcc_version }}
     needs:
       - runner-image
       - toolchain
-    runs-on: ${{ needs.runner-image.outputs.runner_image }}
+    runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
     permissions: write-all
     defaults:
       run:
