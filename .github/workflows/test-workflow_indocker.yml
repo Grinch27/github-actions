@@ -22,8 +22,7 @@ on:
         default: "Grinch27/github-actions/.github/actions/check-toolchain@main"
         type: string
 
-permissions:
-  contents: read
+permissions: write-all
 
 env:
   DEBIAN_FRONTEND: noninteractive
@@ -55,7 +54,6 @@ jobs:
     name: ${{ needs.runner-image.outputs.RUNNER_IMAGE }} - ubuntu:devel - toolchain
     needs: runner-image
     runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
-    permissions: write-all
     defaults:
       run:
         shell: bash
@@ -101,7 +99,6 @@ jobs:
       - runner-image
       - toolchain
     runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
-    permissions: write-all
     defaults:
       run:
         shell: bash
