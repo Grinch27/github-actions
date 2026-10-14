@@ -14,6 +14,8 @@ on:
       - ".github/workflows/code_dev.yml"
       - ".github/actions/setup-gcc/**"
 
+permissions: write-all
+
 jobs:
   job:
     name: Testing Matrix
