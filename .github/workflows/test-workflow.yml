@@ -21,8 +21,7 @@ on:
         default: "Grinch27/github-actions/.github/actions/resolve-toolchain-version@main"
         type: string
 
-permissions:
-  contents: read
+permissions: write-all
 
 env:
   ACTION: ${{ inputs.action || 'Grinch27/github-actions/.github/actions/resolve-toolchain-version@main' }}
@@ -42,7 +41,6 @@ jobs:
     name: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
     needs: runner-image
     runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
-    permissions: write-all
     defaults:
       run:
         shell: bash
