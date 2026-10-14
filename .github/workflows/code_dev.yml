@@ -17,13 +17,23 @@ on:
 permissions: write-all
 
 jobs:
+  runner-image:
+    name: ubuntu-latest - runner-image
+    runs-on: ubuntu-latest
+    outputs:
+      RUNNER_IMAGE: ${{ steps.resolve-runner-image.outputs.RUNNER_IMAGE }}
+    steps:
+      - name: Resolve runner-image
+        id: resolve-runner-image
+        uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
+
   job:
     name: Testing Matrix
-    runs-on: ${{ matrix.runner_image || 'ubuntu-26.04' }}
+    needs: runner-image
+    runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
     strategy:
       fail-fast: false
       matrix:
-        runner_image: ["ubuntu-26.04"]
         gcc_toggle: ["ppa", "devel", "false"]
     env:
       gcc_version: "15"
