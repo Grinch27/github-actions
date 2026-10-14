@@ -32,16 +32,16 @@ jobs:
     name: Resolve runner-image
     runs-on: ubuntu-latest
     outputs:
-      runner_image: ${{ steps.resolve-runner-image.outputs.runner_image }}
+      RUNNER_IMAGE: ${{ steps.resolve-runner-image.outputs.RUNNER_IMAGE }}
     steps:
       - name: Resolve runner-image
         id: resolve-runner-image
         uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
 
   action:
-    name: ${{ needs.runner-image.outputs.runner_image }}
+    name: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
     needs: runner-image
-    runs-on: ${{ needs.runner-image.outputs.runner_image }}
+    runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
     permissions: write-all
     defaults:
       run:
