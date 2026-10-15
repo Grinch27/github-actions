@@ -1,0 +1,52 @@
+name: (Test) run_sudo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/actions/run-sudo/**"
+      - ".github/workflows/test-run-sudo.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runner:
+    name: Ubuntu runner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install run_sudo
+        uses: Grinch27/github-actions/.github/actions/run-sudo@main
+      - name: Verify subsequent step
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v run_sudo
+          test "$(run_sudo id -u)" = 0
+          run_sudo true
+          if run_sudo false; then
+            echo 'run_sudo did not propagate command failure' >&2
+            exit 1
+          fi
+  container:
+    name: Ubuntu container without sudo dependency
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:devel
+      options: --user=0:0
+    steps:
+      - name: Install run_sudo
+        uses: Grinch27/github-actions/.github/actions/run-sudo@main
+      - name: Verify subsequent step
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(id -u)" = 0
+          command -v run_sudo
+          test "$(run_sudo id -u)" = 0
+          run_sudo true
+          if run_sudo false; then
+            echo 'run_sudo did not propagate command failure' >&2
+            exit 1
+          fi
