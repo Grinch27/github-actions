@@ -1,0 +1,33 @@
+name: Install run_sudo
+description: Provide a job-scoped run_sudo command for Ubuntu runners and Linux job containers
+author: Grinch27
+
+runs:
+  using: composite
+  steps:
+    - name: Install run_sudo
+      shell: bash
+      run: |
+        # Prerequisites: Bash, id, mktemp, chmod, and writable RUNNER_TEMP/GITHUB_PATH.
+        # Scope: Ubuntu/Linux jobs; does not install a system-wide sudo binary.
+        # Risks: non-root callers still require preconfigured passwordless sudo.
+        # Verify: subsequent steps resolve run_sudo and preserve command exit codes.
+        set -euo pipefail
+        bin_dir="$(mktemp -d "${RUNNER_TEMP:?}/run-sudo.XXXXXXXX")"
+        cat > "${bin_dir}/run_sudo" <<'SCRIPT'
+        #!/usr/bin/env bash
+        # Assumptions: Ubuntu/Linux with id, Bash and (for non-root) optional sudo.
+        # Risk: non-root callers without usable passwordless sudo cannot elevate.
+        # Verify: root/no-sudo, non-root/sudo -n, and command failure propagation.
+        if [ "$(id -u)" -eq 0 ]; then
+          exec "$@"
+        elif command -v sudo >/dev/null 2>&1; then
+          exec sudo -n "$@"
+        else
+          printf 'run_sudo: root privileges required: %s\n' "$*" >&2
+          exit 1
+        fi
+        SCRIPT
+        chmod 0755 "${bin_dir}/run_sudo"
+        "${bin_dir}/run_sudo" true
+        printf '%s\n' "$bin_dir" >> "$GITHUB_PATH"
