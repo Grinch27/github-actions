@@ -11,10 +11,25 @@ on:
 permissions:
   contents: read
 
+env:
+  CONTAINER_IMAGE: &container_image ubuntu:devel
+
 jobs:
-  runner:
-    name: Ubuntu runner
+  runner-image:
+    name: ubuntu-latest - runner-image
     runs-on: ubuntu-latest
+    outputs:
+      RUNNER_IMAGE: ${{ steps.resolve-runner-image.outputs.RUNNER_IMAGE }}
+      CONTAINER_IMAGE: ${{ env.CONTAINER_IMAGE }}
+    steps:
+      - name: Resolve runner-image
+        id: resolve-runner-image
+        uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
+
+  runner:
+    needs: runner-image
+    name: Ubuntu runner
+    runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
     steps:
       - name: Install run_sudo
         uses: Grinch27/github-actions/.github/actions/run-sudo@main
@@ -30,10 +45,11 @@ jobs:
             exit 1
           fi
   container:
-    name: Ubuntu container without sudo dependency
-    runs-on: ubuntu-latest
+    needs: runner-image
+    name: ${{ needs.runner-image.outputs.CONTAINER_IMAGE }} - container without sudo dependency
+    runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
     container:
-      image: ubuntu:devel
+      image: *container_image
       options: --user=0:0
     steps:
       - name: Install run_sudo
