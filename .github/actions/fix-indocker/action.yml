@@ -17,7 +17,8 @@ runs:
         echo -e "Current working directory: $(pwd)"
         df -Th
 
-        apt-get -yqq update
+        # Requires run-sudo to be installed earlier in this Job.
+        run_sudo apt-get -yqq update
         package_installed=$(dpkg-query -W -f='${binary:Package}\n')
 
         packages_install=(
@@ -28,7 +29,7 @@ runs:
         )
         set +e
         for pkg in "${packages_install[@]}"; do
-          apt-get -yqq install "$pkg" || echo "Skip missing package: $pkg"
+          run_sudo apt-get -yqq install "$pkg" || echo "Skip missing package: $pkg"
         done
         set -e
 
@@ -40,7 +41,7 @@ runs:
       working-directory: /
       run: |
         # ensure `python` exists for tools that require it
-        sudo ln -sf /usr/bin/python3 /usr/bin/python
+        run_sudo ln -sf /usr/bin/python3 /usr/bin/python
 
     - name: (Apt) Reload
       id: apt-reload
@@ -50,7 +51,11 @@ runs:
       working-directory: /
       run: |
         echo -e "Current working directory: $(pwd)"
-        sudo -E apt-get -yqq autoremove --purge
-        sudo -E apt-get -qq clean
-        sudo -E systemctl daemon-reload
+        run_sudo apt-get -yqq autoremove --purge
+        run_sudo apt-get -qq clean
+        if [ ! -f /.dockerenv ] && [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
+          run_sudo systemctl daemon-reload
+        else
+          echo "Skip systemctl daemon-reload when systemd is not the active init system"
+        fi
         df -Th
