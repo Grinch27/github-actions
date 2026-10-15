@@ -13,6 +13,10 @@ runs:
       id: env-custom
       uses: Grinch27/github-actions/.github/actions/input-custom@main
 
+    - name: (Install) run_sudo
+      id: run-sudo
+      uses: Grinch27/github-actions/.github/actions/run-sudo@main
+
     - name: (Setup) Docker
       id: setup-docker
       if: ${{ env.docker_install == 'true' }}
