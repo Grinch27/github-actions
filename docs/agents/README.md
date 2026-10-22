@@ -1,6 +1,6 @@
 # AGENTS.md Part I 统一维护
 
-本目录是五个构建仓库的 GitHub Actions 通用规范 **Part I 的唯一维护源**。项目专属的 Part II 始终留在各自仓库中，由项目独立维护。
+本目录是六个受管仓库的 GitHub Actions 通用规范 **Part I 的唯一维护源**。项目专属的 Part II 始终留在各自仓库中，由项目独立维护。
 
 - 统一正文：`docs/agents/part-i.md`
 - 当前版本：**1.0.0**（以 `COMMON_RULES_VERSION` 为准）
@@ -14,6 +14,7 @@
 - [Grinch27/docker-builder](https://github.com/Grinch27/docker-builder/blob/main/AGENTS.md)
 - [Grinch27/uboot-mtk-compiler](https://github.com/Grinch27/uboot-mtk-compiler/blob/main/AGENTS.md)
 - [Grinch27/aosp-builder](https://github.com/Grinch27/aosp-builder/blob/main/AGENTS.md)
+- [Grinch27/VRviewer](https://github.com/Grinch27/VRviewer/blob/main/AGENTS.md)
 
 ## 单一版本与内容校验
 
@@ -34,7 +35,7 @@ python3 scripts/agents_part_i.py --check
 # 仅检查单个仓库。
 python3 scripts/agents_part_i.py --check --repo docker-builder
 
-# 经批准后，由持有五个目标仓库 Contents: write 权限的操作者手动执行：
+# 经批准后，由持有六个目标仓库 Contents: write 权限的操作者手动执行：
 GH_TOKEN=... python3 scripts/agents_part_i.py --write
 
 # 写入后再次只读核验。
@@ -54,7 +55,7 @@ python3 scripts/agents_part_i.py --check
 3. 审阅变更，保证 GitHub Actions 示例语法有效、已有安全边界不被误覆盖。
 4. 执行只读检查；未同步时返回 DRIFT 属于预期状态。
 5. 按本次授权使用同步脚本，或以人工审阅的相同内容批量更新五个目标 `AGENTS.md`。
-6. 再次运行 `--check`；五个仓库均 OK 后方可称为已统一。
+6. 再次运行 `--check`；六个仓库均 OK 后方可称为已统一。
 7. 检查各仓库提交范围仅限 `AGENTS.md`，尤其保证 `docker-builder` 和 `twrp_builder` 的历史安全约束原文不变。
 
 新增仓库需要先审计是否已有 `AGENTS.md`、项目约束和写入权限，再调整仓库白名单，不能直接对任意仓库执行覆盖。
