@@ -33,7 +33,7 @@ jobs:
         uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
 
   verify:
-    name: Compare canonical Part I across five repositories
+    name: Compare canonical Part I across six repositories
     needs: runner-image
     runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
     steps:
