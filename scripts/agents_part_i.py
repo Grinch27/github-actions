@@ -22,6 +22,7 @@ REPOS = (
     "docker-builder",
     "uboot-mtk-compiler",
     "aosp-builder",
+    "VRviewer",
 )
 HEADING = "# Part I — GitHub Actions 通用规范"
 END_MARKER = "<!-- END: NEW WORKFLOW RULES -->"
