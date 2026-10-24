@@ -1,6 +1,6 @@
 # AGENTS.md Part I 统一维护
 
-`Grinch27/github-actions` 是六个仓库 GitHub Actions 通用规范 **Part I** 的唯一维护源。各仓库的 `AGENTS.md` 均保留独立完整的 Part I；**Part II 由各项目独立维护**，不在统一规范范围内。
+`Grinch27/github-actions` 是十一个仓库 GitHub Actions 通用规范 **Part I** 的唯一维护源。各仓库的 `AGENTS.md` 均保留独立完整的 Part I；**Part II 由各项目独立维护**，不在统一规范范围内。
 
 - 统一规范正文：[`docs/agents/part-i.md`](part-i.md)
 - 当前版本：**1.2.0**（以正文中的 `COMMON_RULES_VERSION` 为准）
@@ -14,6 +14,11 @@
 - [Grinch27/uboot-mtk-compiler](https://github.com/Grinch27/uboot-mtk-compiler/blob/main/AGENTS.md)
 - [Grinch27/aosp-builder](https://github.com/Grinch27/aosp-builder/blob/main/AGENTS.md)
 - [Grinch27/VRviewer](https://github.com/Grinch27/VRviewer/blob/main/AGENTS.md)
+- [Grinch27/awara](https://github.com/Grinch27/awara/blob/main/AGENTS.md)
+- [Grinch27/ECID](https://github.com/Grinch27/ECID/blob/main/AGENTS.md)
+- [Grinch27/archive-kemono](https://github.com/Grinch27/archive-kemono/blob/main/AGENTS.md)
+- [Grinch27/ffmpeg-compiler](https://github.com/Grinch27/ffmpeg-compiler/blob/main/AGENTS.md)
+- [Grinch27/cloudflare-workers-doh-ecs](https://github.com/Grinch27/cloudflare-workers-doh-ecs/blob/main/AGENTS.md)
 
 ## 人工维护规则
 
