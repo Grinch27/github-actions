@@ -21,9 +21,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Ensure run_sudo
-      uses: Grinch27/github-actions/.github/actions/run-sudo@main
-
     - name: Check in Docker
       id: check-indocker
       shell: bash
@@ -49,6 +46,21 @@ runs:
         mnt_num: ${{ inputs.mnt_num }}
       working-directory: /
       run: |
+        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
+        # Assumption: id is present; non-root requires non-interactive sudo.
+        # Risk: container capabilities are not granted by this wrapper.
+        # Verify: arguments, command exit status, and continued Step execution.
+        run_sudo() {
+          if [ "$(id -u)" -eq 0 ]; then
+            "$@"
+          elif command -v sudo >/dev/null 2>&1; then
+            sudo -n "$@"
+          else
+            printf 'run_sudo: root privileges required\n' >&2
+            return 1
+          fi
+        }
+
         # 输出当前磁盘状态
         echo "Current working directory: $(pwd)"
         df -Th
@@ -104,6 +116,21 @@ runs:
       working-directory: /
       run: |
         set -euo pipefail
+
+        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
+        # Assumption: id is present; non-root requires non-interactive sudo.
+        # Risk: container capabilities are not granted by this wrapper.
+        # Verify: arguments, command exit status, and continued Step execution.
+        run_sudo() {
+          if [ "$(id -u)" -eq 0 ]; then
+            "$@"
+          elif command -v sudo >/dev/null 2>&1; then
+            sudo -n "$@"
+          else
+            printf 'run_sudo: root privileges required\n' >&2
+            return 1
+          fi
+        }
 
         # 输出当前磁盘状态
         echo -e "Current working directory: $(pwd)"
@@ -324,6 +351,21 @@ runs:
       working-directory: /
       run: |
         set -euo pipefail
+
+        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
+        # Assumption: id is present; non-root requires non-interactive sudo.
+        # Risk: container capabilities are not granted by this wrapper.
+        # Verify: arguments, command exit status, and continued Step execution.
+        run_sudo() {
+          if [ "$(id -u)" -eq 0 ]; then
+            "$@"
+          elif command -v sudo >/dev/null 2>&1; then
+            sudo -n "$@"
+          else
+            printf 'run_sudo: root privileges required\n' >&2
+            return 1
+          fi
+        }
 
         # Docker 扩盘失败时回退到目录模式
         echo -e "Current working directory: $(pwd)"

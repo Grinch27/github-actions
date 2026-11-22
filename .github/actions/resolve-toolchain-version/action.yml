@@ -19,13 +19,36 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Ensure run_sudo
-      uses: Grinch27/github-actions/.github/actions/run-sudo@main
-
     - name: Ensure resolver runtime
       shell: bash
       run: |
         set -euo pipefail
+
+        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
+        # Assumption: id is present; non-root requires non-interactive sudo.
+        # Risk: container capabilities are not granted by this wrapper.
+        # Verify: arguments, command exit status, and continued Step execution.
+        run_sudo() {
+          if [ "$(id -u)" -eq 0 ]; then
+            "$@"
+          elif command -v sudo >/dev/null 2>&1; then
+            sudo -n "$@"
+          else
+            printf 'run_sudo: root privileges required\n' >&2
+            return 1
+          fi
+        }
+
+        run_sudo_env() {
+          local name
+          local -a env_args=()
+          for name in DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN APT_LISTCHANGES_FRONTEND NEEDRESTART_MODE LANG LC_ALL TZ; do
+            if [[ -v "$name" ]]; then
+              env_args+=("${name}=${!name}")
+            fi
+          done
+          run_sudo env "${env_args[@]}" "$@"
+        }
 
         need() {
           command -v "$1" >/dev/null 2>&1 || {
@@ -61,6 +84,35 @@ runs:
       run: |
         set -euo pipefail
 
+        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
+        # Assumption: id is present; non-root requires non-interactive sudo.
+        # Risk: container capabilities are not granted by this wrapper.
+        # Verify: arguments, command exit status, and continued Step execution.
+        run_sudo() {
+          if [ "$(id -u)" -eq 0 ]; then
+            "$@"
+          elif command -v sudo >/dev/null 2>&1; then
+            sudo -n "$@"
+          else
+            printf 'run_sudo: root privileges required\n' >&2
+            return 1
+          fi
+        }
+
+        run_sudo_env() {
+          local name
+          local -a env_args=()
+          for name in DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN APT_LISTCHANGES_FRONTEND NEEDRESTART_MODE LANG LC_ALL TZ; do
+            if [[ -v "$name" ]]; then
+              env_args+=("${name}=${!name}")
+            fi
+          done
+          run_sudo env "${env_args[@]}" "$@"
+        }
+
+        # Python launches Bash explicitly; export is limited to this Step.
+        export -f run_sudo run_sudo_env
+
         python3 <<'PY'
         import os
         import re
@@ -80,7 +132,8 @@ runs:
             return subprocess.run(args, check=True, text=True, capture_output=True).stdout
 
         def apt_update():
-            command = ["run_sudo_env", "apt-get", "-yqq", "update"]
+            command = ["bash", "-c", 'run_sudo_env "$@"', "run_sudo_env",
+                       "apt-get", "-yqq", "update"]
             subprocess.run(command, check=True)
 
         def has_candidate(package):

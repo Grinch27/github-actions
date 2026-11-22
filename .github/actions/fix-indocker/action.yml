@@ -7,9 +7,6 @@ author: "Grinch27"
 runs:
   using: composite
   steps:
-    - name: Ensure run_sudo
-      uses: Grinch27/github-actions/.github/actions/run-sudo@main
-
     - name: (Apt) Install
       id: apt-install
       shell: bash
@@ -17,6 +14,21 @@ runs:
         DEBIAN_FRONTEND: noninteractive
       working-directory: /
       run: |
+        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
+        # Assumption: id is present; non-root requires non-interactive sudo.
+        # Risk: container capabilities are not granted by this wrapper.
+        # Verify: arguments, command exit status, and continued Step execution.
+        run_sudo() {
+          if [ "$(id -u)" -eq 0 ]; then
+            "$@"
+          elif command -v sudo >/dev/null 2>&1; then
+            sudo -n "$@"
+          else
+            printf 'run_sudo: root privileges required\n' >&2
+            return 1
+          fi
+        }
+
         echo -e "Current working directory: $(pwd)"
         df -Th
 
@@ -41,6 +53,21 @@ runs:
         DEBIAN_FRONTEND: noninteractive
       working-directory: /
       run: |
+        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
+        # Assumption: id is present; non-root requires non-interactive sudo.
+        # Risk: container capabilities are not granted by this wrapper.
+        # Verify: arguments, command exit status, and continued Step execution.
+        run_sudo() {
+          if [ "$(id -u)" -eq 0 ]; then
+            "$@"
+          elif command -v sudo >/dev/null 2>&1; then
+            sudo -n "$@"
+          else
+            printf 'run_sudo: root privileges required\n' >&2
+            return 1
+          fi
+        }
+
         # ensure `python` exists for tools that require it
         run_sudo ln -sf /usr/bin/python3 /usr/bin/python
 
@@ -51,6 +78,21 @@ runs:
         DEBIAN_FRONTEND: noninteractive
       working-directory: /
       run: |
+        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
+        # Assumption: id is present; non-root requires non-interactive sudo.
+        # Risk: container capabilities are not granted by this wrapper.
+        # Verify: arguments, command exit status, and continued Step execution.
+        run_sudo() {
+          if [ "$(id -u)" -eq 0 ]; then
+            "$@"
+          elif command -v sudo >/dev/null 2>&1; then
+            sudo -n "$@"
+          else
+            printf 'run_sudo: root privileges required\n' >&2
+            return 1
+          fi
+        }
+
         echo -e "Current working directory: $(pwd)"
         run_sudo apt-get -yqq autoremove --purge
         run_sudo apt-get -qq clean
