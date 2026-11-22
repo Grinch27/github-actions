@@ -1,0 +1,70 @@
+name: (Test) Dynamic job container object and null
+# Scope: manual expression/runtime probe only; no firmware, APT, privileged mounts or release.
+# Unknown: GitHub service accepts both object and JSON null in jobs.<id>.container.
+# Risk: minimal container image/volume allocation on ephemeral hosted runner only.
+# Follow-up: if this passes, test the actual OpenWrt JSON configuration separately.
+# Verify: same Job definition, matrix branches, real job context, marker, options and volume.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  runner-image:
+    runs-on: ubuntu-latest
+    outputs:
+      RUNNER_IMAGE: ${{ steps.resolve-runner-image.outputs.RUNNER_IMAGE }}
+      CONTAINER_CONFIG: ${{ steps.config.outputs.CONTAINER_CONFIG }}
+    steps:
+      - name: Resolve runner-image
+        id: resolve-runner-image
+        uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
+      - name: Generate one container configuration
+        id: config
+        run: |
+          set -euo pipefail
+          config=$(jq -cn '{image:"ubuntu:devel",options:"--hostname dynamic-container-probe --user=0:0",env:{DYNAMIC_CONTAINER_PROBE:"object"},volumes:["dynamic-container-probe:/probe-volume"]}')
+          printf 'CONTAINER_CONFIG=%s\n' "$config" >> "$GITHUB_OUTPUT"
+  probe:
+    name: Probe ${{ matrix.build_mode }}
+    needs: runner-image
+    runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        build_mode: [Docker, Non-container]
+    container: ${{ fromJSON(matrix.build_mode == 'Non-container' && 'null' || needs.runner-image.outputs.CONTAINER_CONFIG) }}
+    steps:
+      - name: Verify actual execution environment and full object fields
+        env:
+          EXPECTED_MODE: ${{ matrix.build_mode }}
+          JOB_CONTAINER_ID: ${{ job.container.id }}
+        run: |
+          set -euo pipefail
+          if [[ "$EXPECTED_MODE" == Docker ]]; then
+            test -n "$JOB_CONTAINER_ID"
+            test -f /.dockerenv
+            test "$(id -u)" = 0
+            test "${DYNAMIC_CONTAINER_PROBE:-}" = object
+            test "$(cat /proc/sys/kernel/hostname)" = dynamic-container-probe
+            grep -q ' /probe-volume ' /proc/self/mountinfo
+          else
+            test "$EXPECTED_MODE" = Non-container
+            test -z "$JOB_CONTAINER_ID"
+            test ! -f /.dockerenv
+            test ! -f /run/.containerenv
+            test -z "${DYNAMIC_CONTAINER_PROBE:-}"
+            test "$(id -u)" != 0
+            if grep -q ' /probe-volume ' /proc/self/mountinfo; then
+              echo 'Container volume unexpectedly present on native runner' >&2
+              exit 1
+            fi
+          fi
+          printf 'Expected mode %s verified; UID %s\n' "$EXPECTED_MODE" "$(id -u)"
+          cat /etc/os-release

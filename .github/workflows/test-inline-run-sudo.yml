@@ -1,0 +1,75 @@
+name: (Test) Inline privilege and Snap guards
+
+# Scope: opt-in P0 regression, no release or package maintenance.
+# Unknown: hosted runner passwordless sudo and selected image runtime.
+# Risk: do not use a real sudo command to invoke simulated APT.
+# Verify: checked-out source, real UID/sudo and isolated command traces.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runner-image:
+    runs-on: ubuntu-latest
+    outputs:
+      RUNNER_IMAGE: ${{ steps.resolve-runner-image.outputs.RUNNER_IMAGE }}
+    steps:
+      - name: Resolve runner-image
+        id: resolve-runner-image
+        uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
+
+  native:
+    needs: runner-image
+    runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@main
+        with:
+          persist-credentials: false
+      - name: Real non-root passwordless sudo, harmless commands only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          python3 tests/verify_p0.py --mode sudo
+      - name: Actual non-root denied and sudo unavailable on PATH
+        shell: bash
+        run: |
+          set -euo pipefail
+          fixture=$(mktemp -d)
+          chmod 0755 "$fixture"
+          mkdir -p "$fixture/.github/actions/resolve-toolchain-version" "$fixture/tests"
+          install -m 0644 .github/actions/resolve-toolchain-version/action.yml "$fixture/.github/actions/resolve-toolchain-version/action.yml"
+          install -m 0644 tests/verify_p0.py "$fixture/tests/verify_p0.py"
+          sudo -n -u nobody /usr/bin/python3 "$fixture/tests/verify_p0.py" --mode no-sudo
+          sudo -n -u nobody /usr/bin/python3 "$fixture/tests/verify_p0.py" --mode denied
+
+  container:
+    needs: runner-image
+    runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
+    timeout-minutes: 10
+    container:
+      image: python:3.12-slim
+      options: --user=0:0
+    steps:
+      - uses: actions/checkout@main
+        with:
+          persist-credentials: false
+      - name: Real root container without sudo
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(id -u)" = 0
+          if command -v sudo >/dev/null 2>&1; then
+            echo 'Expected an image without sudo' >&2
+            exit 1
+          fi
+          python3 tests/verify_p0.py --mode root
+      - name: Full inline source and isolated package/service simulation
+        shell: bash
+        run: python3 tests/verify_p0.py --mode simulation
+      - name: Actual container detection, all side-effect commands stubbed
+        shell: bash
+        run: python3 tests/verify_p0.py --mode detected-container

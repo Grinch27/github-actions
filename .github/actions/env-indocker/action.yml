@@ -1,58 +1,63 @@
-name: Environment for GH Actions in Docker
-
-# https://docs.github.com/zh/actions/reference/workflows-and-actions/metadata-syntax#runs-for-composite-actions
-
-description: Environment for GH Actions in Docker
-
-author: "Grinch27"
-
+name: Environment for GH Actions on Linux
+# Compatibility: retain env-indocker path and current toolchain defaults.
+# Unknown: other callers not visible to code search; verify U-Boot regression.
+# Risk: host initialization and disk ownership; test on disposable hosted runners.
+# Follow-up: check actual compiler versions in job, not candidate apt versions.
+# Verify: same common steps, container-only fixes, paths after disk setup.
+# Docker installation: env-toolchain is the sole owner; no early duplicate.
+description: Prepare the common OpenWrt/U-Boot environment on a Linux runner or job container.
+author: Grinch27
 runs:
   using: composite
   steps:
+    - name: Detect build environment
+      id: detect-environment
+      uses: Grinch27/github-actions/.github/actions/check-indocker@main
+    - name: Require recognized execution environment
+      id: require-environment
+      shell: bash
+      env:
+        ENVIRONMENT_KIND: ${{ steps.detect-environment.outputs.environment_kind }}
+      run: |
+        set -euo pipefail
+        case "$ENVIRONMENT_KIND" in
+          container|native) ;;
+          *) echo 'Unknown execution environment; stop before initialization' >&2; exit 1 ;;
+        esac
     - name: Load Custom Environment Variables
       id: env-custom
       uses: Grinch27/github-actions/.github/actions/input-custom@main
-
-    - name: (Setup) Docker
-      id: setup-docker
-      if: ${{ env.docker_install == 'true' }}
-      uses: Grinch27/github-actions/.github/actions/setup-docker@main
-
+      with:
+        phase: load
     - name: (Apt) Docker Needed for Actions
       id: fix-docker
+      if: ${{ steps.detect-environment.outputs.environment_kind == 'container' }}
       uses: Grinch27/github-actions/.github/actions/fix-indocker@main
-
     - name: (Apt) install packages - OpenWrt
       id: apt-openwrt
       uses: Grinch27/github-actions/.github/actions/apt-openwrt@main
-    # ========== General Environment Setup: Start ==========
     - name: (Env) Environment for Toolchain
       id: env-toolchain
       uses: Grinch27/github-actions/.github/actions/env-toolchain@main
       with:
-        # ----- gcc -----
         gcc_purge: ${{ env.gcc_purge }}
         gcc_install: ${{ env.gcc_install }}
         gcc_switch: ${{ env.gcc_switch }}
         gcc_version: ${{ env.gcc_version }}
         gcc_aarch64: ${{ env.gcc_aarch64 }}
-        # ----- clang -----
         clang_purge: ${{ env.clang_purge }}
         clang_install: ${{ env.clang_install }}
         clang_switch: ${{ env.clang_switch }}
         clang_version: ${{ env.clang_version }}
-        # ----- jdk -----
         jdk_purge: ${{ env.jdk_purge }}
         jdk_install: ${{ env.jdk_install }}
         jdk_switch: ${{ env.jdk_switch }}
         jdk_version: ${{ env.jdk_version }}
-        # ----- docker -----
         docker_install: ${{ env.docker_install }}
         qemu_install: ${{ env.qemu_install }}
         purge_snap: "false"
         clean_docker_image: "false"
         clean_runner: "false"
-    # ========== General Environment Setup: End ==========
     - name: (Disk) disk workspace
       id: disk
       uses: Grinch27/github-actions/.github/actions/setup-disk@main
@@ -60,3 +65,8 @@ runs:
         path_build: ${{ env.PATH_build }}
         root_num: 4
         mnt_num: 1
+    - name: Prepare paths after disk setup
+      id: prepare-paths
+      uses: Grinch27/github-actions/.github/actions/input-custom@main
+      with:
+        phase: paths

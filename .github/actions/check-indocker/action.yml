@@ -1,14 +1,21 @@
 name: Check in Docker
-
-description: Check whether current job runs inside Docker
-
-author: "Grinch27"
-
+# Scope: C03 minimum for Linux GitHub-hosted jobs; never infer native from PID 1.
+# Unknown: unrecognized containers and availability of systemd-detect-virt.
+# Risk: legacy consumers must handle unknown explicitly; service/disk ownership is separate.
+# Follow-up: audit outside consumers and purge-snap unknown policy independently.
+# Verify: job context, markers, detector status, output/env equality.
+description: Classify the current GitHub Actions execution environment.
+author: Grinch27
 outputs:
   in_container:
-    description: Whether current job runs inside Docker
+    description: true, false, or unknown (never false for an inconclusive probe)
     value: ${{ steps.check-indocker.outputs.in_container }}
-
+  environment_kind:
+    description: container, native, or unknown
+    value: ${{ steps.check-indocker.outputs.environment_kind }}
+  detection_source:
+    description: Evidence used by the detector
+    value: ${{ steps.check-indocker.outputs.detection_source }}
 runs:
   using: composite
   steps:
@@ -16,18 +23,6 @@ runs:
       id: check-indocker
       shell: bash
       working-directory: /
-      run: |
-        echo -e "Current working directory: $(pwd)"
-
-        if [ -f /.dockerenv ]; then
-          echo "in_container=true" | tee -a "${GITHUB_OUTPUT}"
-        else
-          echo "in_container=false" | tee -a "${GITHUB_OUTPUT}"
-        fi
-
-        env_vars=(
-          "in_container"
-        )
-        for var in "${env_vars[@]}"; do
-          echo "${var}=${!var}" | tee -a "$GITHUB_ENV"
-        done
+      env:
+        GHA_JOB_CONTAINER_ID: ${{ job.container.id }}
+      run: bash "$GITHUB_ACTION_PATH/check-indocker.sh"
