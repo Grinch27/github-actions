@@ -10,13 +10,21 @@ runs:
     - name: Purge Snap
       id: purge_snap
       shell: bash
-      continue-on-error: true
+      # continue-on-error: true
       working-directory: /
       run: |
-        # Scope: Ubuntu/Linux jobs; keep Snap CLI and service control native-only.
-        # Assumptions: a non-root caller has passwordless sudo; container markers are present.
-        # Risk: APT maintainer scripts may invoke services independently of this guard.
-        # Verify: root/no-sudo, sudo -n, environment allowlist, and native/container branches.
+        # Scope: Ubuntu/Linux jobs; skip all Snap cleanup in detected containers.
+        # Unknown: unrecognized containers without markers or systemd-detect-virt.
+        # Risk: native APT maintainer scripts may still invoke services directly.
+        # Verify: early exit before mutations; native commands unchanged; Step failures propagate.
+        if [ -f /.dockerenv ] ||
+           [ -f /run/.containerenv ] ||
+           { command -v systemd-detect-virt >/dev/null 2>&1 &&
+             systemd-detect-virt --container --quiet; }; then
+          echo "Skip Snap cleanup inside container"
+          exit 0
+        fi
+
         run_sudo() {
           if [ "$(id -u)" -eq 0 ]; then
             "$@"
