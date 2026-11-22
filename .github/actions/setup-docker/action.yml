@@ -67,11 +67,6 @@ runs:
         # ========== reload ==========
         run_sudo env DEBIAN_FRONTEND=noninteractive apt-get -yqq autoremove --purge
         run_sudo apt-get -qq clean
-        if [ "${in_container}" = 'false' ] && command -v systemctl >/dev/null 2>&1; then
-          run_sudo systemctl daemon-reload
-        else
-          echo "Skip systemctl daemon-reload inside container or when systemctl is unavailable"
-        fi
         df -Th
 
         docker --version
