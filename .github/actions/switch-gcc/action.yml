@@ -13,6 +13,9 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Ensure run_sudo
+      uses: Grinch27/github-actions/.github/actions/run-sudo@main
+
     - name: (Vars) Resolve suffix
       id: vars
       shell: bash
@@ -23,7 +26,7 @@ runs:
       run: |
         echo -e "Current working directory: $(pwd)"
         df -Th
-        sudo -E apt-get -yqq update
+        run_sudo_env apt-get -yqq update
         package_installed=$(dpkg-query -W -f='${binary:Package}\n')
 
         if [ -n "${{ env.gcc_version }}" ]; then
@@ -61,14 +64,14 @@ runs:
         for tool in "${tools_gcc[@]}"; do
           versions=$(ls /usr/bin/${tool}-* 2>/dev/null | grep -Eo '[0-9]+$' | sort -u)
           for version in ${versions}; do
-            sudo update-alternatives --install /usr/bin/${tool} ${tool} /usr/bin/${tool}-${version} ${version}
+            run_sudo update-alternatives --install /usr/bin/${tool} ${tool} /usr/bin/${tool}-${version} ${version}
           done
         done
-        sudo update-alternatives --query gcc
-        sudo update-alternatives --query g++
+        run_sudo update-alternatives --query gcc
+        run_sudo update-alternatives --query g++
 
         for tool in "${tools_gcc[@]}"; do
-          sudo update-alternatives --set ${tool} /usr/bin/${tool}-${{ env.lib_version }}
+          run_sudo update-alternatives --set ${tool} /usr/bin/${tool}-${{ env.lib_version }}
         done
 
     - name: (Apt) Reload
@@ -79,7 +82,7 @@ runs:
       working-directory: /
       run: |
         echo -e "Current working directory: $(pwd)"
-        sudo -E apt-get -yqq autoremove --purge
-        sudo -E apt-get -qq clean
-        sudo -E systemctl daemon-reload
+        run_sudo_env apt-get -yqq autoremove --purge
+        run_sudo_env apt-get -qq clean
+        run_sudo_env systemctl daemon-reload
         df -Th

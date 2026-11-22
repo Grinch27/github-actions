@@ -21,6 +21,9 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Ensure run_sudo
+      uses: Grinch27/github-actions/.github/actions/run-sudo@main
+
     - name: Check in Docker
       id: check-indocker
       shell: bash
@@ -64,28 +67,28 @@ runs:
         echo "Available space in / (bytes): ${root_size}"
 
         # 创建回环映像文件
-        sudo truncate -s "${mnt_size}" /mnt/mnt.img
-        sudo truncate -s "${root_size}" /root.img
+        run_sudo truncate -s "${mnt_size}" /mnt/mnt.img
+        run_sudo truncate -s "${root_size}" /root.img
 
         # 绑定 loop 设备
-        LOOP_MNT=$(sudo losetup --find --show /mnt/mnt.img)
-        LOOP_ROOT=$(sudo losetup --find --show /root.img)
+        LOOP_MNT=$(run_sudo losetup --find --show /mnt/mnt.img)
+        LOOP_ROOT=$(run_sudo losetup --find --show /root.img)
         echo "Assigned loop device for /mnt/mnt.img: ${LOOP_MNT}"
         echo "Assigned loop device for /root.img: ${LOOP_ROOT}"
 
         # 初始化物理卷并创建卷组
-        sudo pvcreate "${LOOP_MNT}"
-        sudo pvcreate "${LOOP_ROOT}"
-        sudo vgcreate github "${LOOP_MNT}" "${LOOP_ROOT}"
+        run_sudo pvcreate "${LOOP_MNT}"
+        run_sudo pvcreate "${LOOP_ROOT}"
+        run_sudo vgcreate github "${LOOP_MNT}" "${LOOP_ROOT}"
 
         # 创建逻辑卷并格式化
-        sudo lvcreate -n runner -l 100%FREE github
-        sudo mkfs.xfs /dev/github/runner
+        run_sudo lvcreate -n runner -l 100%FREE github
+        run_sudo mkfs.xfs /dev/github/runner
 
         # 挂载逻辑卷并修正权限
-        sudo mkdir -p "${path_build}"
-        sudo mount /dev/github/runner "${path_build}"
-        sudo chown -R $(whoami):$(whoami) "${path_build}"
+        run_sudo mkdir -p "${path_build}"
+        run_sudo mount /dev/github/runner "${path_build}"
+        run_sudo chown -R $(whoami):$(whoami) "${path_build}"
 
         df -Th
 
@@ -107,14 +110,6 @@ runs:
         df -Th
 
         # 统一 root 执行入口
-        run_root() {
-          if command -v sudo >/dev/null 2>&1; then
-            sudo "$@"
-          else
-            "$@"
-          fi
-        }
-
         # 补齐扩盘所需依赖
         ensure_disk_tools() {
           local required_cmds missing_cmds cmd
@@ -140,8 +135,8 @@ runs:
             return 1
           fi
 
-          run_root env DEBIAN_FRONTEND=noninteractive apt-get -yqq update
-          run_root env DEBIAN_FRONTEND=noninteractive apt-get -yqq install lvm2 util-linux e2fsprogs xfsprogs
+          run_sudo env DEBIAN_FRONTEND=noninteractive apt-get -yqq update
+          run_sudo env DEBIAN_FRONTEND=noninteractive apt-get -yqq install lvm2 util-linux e2fsprogs xfsprogs
         }
 
         # 读取指定目录的剩余字节数
@@ -169,17 +164,17 @@ runs:
           local index
 
           if command -v modprobe >/dev/null 2>&1; then
-            run_root modprobe loop >/dev/null 2>&1 || true
+            run_sudo modprobe loop >/dev/null 2>&1 || true
           fi
         # 计算可用空间并登记映像文件
 
           if command -v mknod >/dev/null 2>&1; then
             if [ ! -e /dev/loop-control ]; then
-              run_root mknod -m 660 /dev/loop-control c 10 237 >/dev/null 2>&1 || true
+              run_sudo mknod -m 660 /dev/loop-control c 10 237 >/dev/null 2>&1 || true
             fi
             for index in $(seq 0 7); do
               if [ ! -b "/dev/loop${index}" ]; then
-                run_root mknod -m 660 "/dev/loop${index}" b 7 "${index}" >/dev/null 2>&1 || true
+                run_sudo mknod -m 660 "/dev/loop${index}" b 7 "${index}" >/dev/null 2>&1 || true
               fi
             done
           fi
@@ -219,16 +214,16 @@ runs:
         ensure_loop_devices
 
         # 已挂载时直接复用目标目录
-        run_root mkdir -p "${path_build}"
+        run_sudo mkdir -p "${path_build}"
         if mountpoint -q "${path_build}"; then
           echo "${path_build} is already mounted"
-          run_root chown -R "$(whoami):$(whoami)" "${path_build}"
+          run_sudo chown -R "$(whoami):$(whoami)" "${path_build}"
           df -Th "${path_build}"
           exit 0
         fi
 
         # 检查 loop 设备是否可用
-        if ! run_root losetup -f >/dev/null 2>&1; then
+        if ! run_sudo losetup -f >/dev/null 2>&1; then
           echo "No loop device available for setup-disk-docker"
           exit 1
         fi
@@ -252,22 +247,22 @@ runs:
 
           set +e
           if mountpoint -q "${path_build}"; then
-            run_root umount "${path_build}"
+            run_sudo umount "${path_build}"
           fi
-          if run_root lvdisplay "${lv_path}" >/dev/null 2>&1; then
-            run_root lvremove -fy "${lv_path}"
+          if run_sudo lvdisplay "${lv_path}" >/dev/null 2>&1; then
+            run_sudo lvremove -fy "${lv_path}"
           fi
-          if run_root vgdisplay "${vg_name}" >/dev/null 2>&1; then
-            run_root vgremove -fy "${vg_name}"
+          if run_sudo vgdisplay "${vg_name}" >/dev/null 2>&1; then
+            run_sudo vgremove -fy "${vg_name}"
           fi
           for loop_device in "${loop_devices[@]}"; do
-            if run_root pvs "${loop_device}" >/dev/null 2>&1; then
-              run_root pvremove -ffy "${loop_device}"
+            if run_sudo pvs "${loop_device}" >/dev/null 2>&1; then
+              run_sudo pvremove -ffy "${loop_device}"
             fi
-            run_root losetup -d "${loop_device}" >/dev/null 2>&1 || true
+            run_sudo losetup -d "${loop_device}" >/dev/null 2>&1 || true
           done
           for file_path in "${file_paths[@]}"; do
-            run_root rm -f "${file_path}"
+            run_sudo rm -f "${file_path}"
           done
           exit "${exit_code}"
         }
@@ -292,31 +287,31 @@ runs:
           file_path="${file_paths[$idx]}"
           file_size="${file_sizes[$idx]}"
 
-          run_root mkdir -p "$(dirname "${file_path}")"
-          run_root rm -f "${file_path}"
-          run_root truncate -s "${file_size}" "${file_path}"
+          run_sudo mkdir -p "$(dirname "${file_path}")"
+          run_sudo rm -f "${file_path}"
+          run_sudo truncate -s "${file_size}" "${file_path}"
 
-          loop_device=$(run_root losetup --find --show "${file_path}")
+          loop_device=$(run_sudo losetup --find --show "${file_path}")
           loop_devices+=("${loop_device}")
           echo "Assigned loop device for ${file_path}: ${loop_device}"
 
-          run_root pvcreate -ff -y "${loop_device}"
+          run_sudo pvcreate -ff -y "${loop_device}"
         done
 
         # 创建卷组与逻辑卷
-        run_root vgcreate "${vg_name}" "${loop_devices[@]}"
-        run_root lvcreate -n "${lv_name}" -l 100%FREE "${vg_name}"
+        run_sudo vgcreate "${vg_name}" "${loop_devices[@]}"
+        run_sudo lvcreate -n "${lv_name}" -l 100%FREE "${vg_name}"
 
         # 优先使用 xfs，失败时退回 ext4
         if command -v mkfs.xfs >/dev/null 2>&1; then
-          run_root mkfs.xfs -f "${lv_path}"
+          run_sudo mkfs.xfs -f "${lv_path}"
         else
-          run_root mkfs.ext4 -F "${lv_path}"
+          run_sudo mkfs.ext4 -F "${lv_path}"
         fi
 
         # 挂载逻辑卷并修正权限
-        run_root mount "${lv_path}" "${path_build}"
-        run_root chown -R "$(whoami):$(whoami)" "${path_build}"
+        run_sudo mount "${lv_path}" "${path_build}"
+        run_sudo chown -R "$(whoami):$(whoami)" "${path_build}"
 
         df -Th
 
@@ -332,5 +327,5 @@ runs:
 
         # Docker 扩盘失败时回退到目录模式
         echo -e "Current working directory: $(pwd)"
-        sudo mkdir -p "${path_build}"
-        sudo chown -R "$(whoami):$(whoami)" "${path_build}"
+        run_sudo mkdir -p "${path_build}"
+        run_sudo chown -R "$(whoami):$(whoami)" "${path_build}"

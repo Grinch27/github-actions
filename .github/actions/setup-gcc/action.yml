@@ -19,6 +19,9 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Ensure run_sudo
+      uses: Grinch27/github-actions/.github/actions/run-sudo@main
+
     - name: (Vars) Resolve suffix
       id: vars
       shell: bash
@@ -29,7 +32,7 @@ runs:
       run: |
         echo -e "Current working directory: $(pwd)"
         df -Th
-        sudo -E apt-get -yqq update
+        run_sudo_env apt-get -yqq update
         package_installed=$(dpkg-query -W -f='${binary:Package}\n')
 
         if [ -n "${{ env.gcc_version }}" ]; then
@@ -50,18 +53,18 @@ runs:
         DEBIAN_FRONTEND: noninteractive
       working-directory: /
       run: |
-        echo "deb http://archive.ubuntu.com/ubuntu/ devel main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/devel.list
-        sudo -E apt-get -yqq update
+        echo "deb http://archive.ubuntu.com/ubuntu/ devel main restricted universe multiverse" | run_sudo tee /etc/apt/sources.list.d/devel.list
+        run_sudo_env apt-get -yqq update
 
         # Fix /lib32 by enforcing merged-/usr symlink so dpkg accepts GCC packages
-        sudo mkdir -p /usr/lib32
+        run_sudo mkdir -p /usr/lib32
         if [ -L /lib32 ] && [ ! -e /lib32 ]; then
           echo "Repairing dangling /lib32 -> /usr/lib32 symlink"
-          sudo ln -sf /usr/lib32 /lib32
+          run_sudo ln -sf /usr/lib32 /lib32
         elif [ -d /lib32 ] && [ ! -L /lib32 ]; then
           echo "Converting /lib32 directory into symlink -> /usr/lib32"
-          sudo rm -rf /lib32
-          sudo ln -s /usr/lib32 /lib32
+          run_sudo rm -rf /lib32
+          run_sudo ln -s /usr/lib32 /lib32
         fi
 
     - name: (Toggle) PPA for GCC
@@ -70,8 +73,8 @@ runs:
       working-directory: /
       run: |
         # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/ppa
-        sudo add-apt-repository -y ppa:ubuntu-toolchain-r/ppa || true
-        sudo -E apt-get -yqq update
+        run_sudo add-apt-repository -y ppa:ubuntu-toolchain-r/ppa || true
+        run_sudo_env apt-get -yqq update
 
     - name: Setup GCC
       shell: bash
@@ -97,7 +100,7 @@ runs:
           "gfortran${{ env.pkg_suffix }}"
         )
         echo "Base packages to be installed: ${base_packages[@]}"
-        sudo -E apt-get -yqq install "${base_packages[@]}"
+        run_sudo_env apt-get -yqq install "${base_packages[@]}"
 
         lib_version="${{ env.lib_version }}"
         if [ -z "$lib_version" ]; then
@@ -115,23 +118,23 @@ runs:
           "libgfortran-${lib_version}-dev"
         )
         echo "Lib packages to be installed: ${lib_packages[@]}"
-        sudo -E apt-get -yqq install "${lib_packages[@]}"
+        run_sudo_env apt-get -yqq install "${lib_packages[@]}"
 
     - name: (Remove) Ubuntu devel for GCC
       if: ${{ inputs.gcc_toggle == 'devel' }}
       shell: bash
       working-directory: /
       run: |
-        sudo rm /etc/apt/sources.list.d/devel.list
-        sudo -E apt-get -yqq update
+        run_sudo rm /etc/apt/sources.list.d/devel.list
+        run_sudo_env apt-get -yqq update
 
     - name: (Remove) PPA for GCC
       if: ${{ inputs.gcc_toggle == 'ppa' }}
       shell: bash
       working-directory: /
       run: |
-        sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/ppa || true
-        sudo -E apt-get -yqq update
+        run_sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/ppa || true
+        run_sudo_env apt-get -yqq update
 
     - name: (Apt) Reload
       id: apt-reload
@@ -141,7 +144,7 @@ runs:
       working-directory: /
       run: |
         echo -e "Current working directory: $(pwd)"
-        sudo -E apt-get -yqq autoremove --purge
-        sudo -E apt-get -qq clean
-        sudo -E systemctl daemon-reload
+        run_sudo_env apt-get -yqq autoremove --purge
+        run_sudo_env apt-get -qq clean
+        run_sudo_env systemctl daemon-reload
         df -Th

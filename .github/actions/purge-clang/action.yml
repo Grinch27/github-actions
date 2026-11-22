@@ -7,6 +7,9 @@ author: "Grinch27"
 runs:
   using: composite
   steps:
+    - name: Ensure run_sudo
+      uses: Grinch27/github-actions/.github/actions/run-sudo@main
+
     - name: Purge Clang
       shell: bash
       continue-on-error: true
@@ -14,7 +17,7 @@ runs:
       run: |
         echo -e "Current working directory: $(pwd)"
         df -Th
-        sudo -E apt-get -yqq update
+        run_sudo_env apt-get -yqq update
         package_installed=$(dpkg-query -W -f='${binary:Package}\n')
 
         regexes=(
@@ -38,7 +41,7 @@ runs:
         set +e
         for package in "${packages_purge[@]}"; do
           echo "Attempting to remove $package"
-          sudo -E apt-get -yqq autoremove --purge "$package"
+          run_sudo_env apt-get -yqq autoremove --purge "$package"
           if [[ $? -ne 0 ]]; then
             echo "Failed to remove $package"
           fi
@@ -46,7 +49,7 @@ runs:
         set -e
 
         # ========== reload ==========
-        sudo -E apt-get -yqq autoremove --purge
-        sudo -E apt-get -qq clean
-        sudo -E systemctl daemon-reload
+        run_sudo_env apt-get -yqq autoremove --purge
+        run_sudo_env apt-get -qq clean
+        run_sudo_env systemctl daemon-reload
         df -Th

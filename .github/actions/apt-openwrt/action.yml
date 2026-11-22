@@ -7,6 +7,9 @@ author: "Grinch27"
 runs:
   using: composite
   steps:
+    - name: Ensure run_sudo
+      uses: Grinch27/github-actions/.github/actions/run-sudo@main
+
     - name: Check in Docker
       id: check-indocker
       shell: bash
@@ -35,15 +38,7 @@ runs:
         df -Th
 
         # 统一 root 执行入口，兼容容器内无 sudo 的场景
-        run_root() {
-          if command -v sudo >/dev/null 2>&1; then
-            sudo "$@"
-          else
-            "$@"
-          fi
-        }
-
-        run_root apt-get -yqq update
+        run_sudo apt-get -yqq update
 
         packages_install=(
           "ack"
@@ -126,7 +121,7 @@ runs:
         # 逐包安装，单个包缺失时不中断整个 OpenWrt 依赖准备
         set +e
         for pkg in "${packages_install[@]}"; do
-          run_root apt-get -yqq install "$pkg" || echo "Skip missing package: $pkg"
+          run_sudo apt-get -yqq install "$pkg" || echo "Skip missing package: $pkg"
         done
         set -e
 
@@ -142,19 +137,11 @@ runs:
 
         echo -e "Current working directory: $(pwd)"
 
-        run_root() {
-          if command -v sudo >/dev/null 2>&1; then
-            sudo "$@"
-          else
-            "$@"
-          fi
-        }
-
         # 清理 apt 缓存，非容器且存在 systemctl 时再刷新 daemon
-        run_root apt-get -yqq autoremove --purge
-        run_root apt-get -qq clean
+        run_sudo apt-get -yqq autoremove --purge
+        run_sudo apt-get -qq clean
         if [ "${{ steps.check-indocker.outputs.in_container }}" = 'false' ] && command -v systemctl >/dev/null 2>&1; then
-          run_root systemctl daemon-reload
+          run_sudo systemctl daemon-reload
         else
           echo "Skip systemctl daemon-reload inside container or when systemctl is unavailable"
         fi
@@ -171,7 +158,7 @@ runs:
         echo -e "Current working directory: $(pwd)"
         df -Th
 
-        sudo -E apt-get -yqq update
+        run_sudo_env apt-get -yqq update
         package_installed=$(dpkg-query -W -f='${binary:Package}\n')
 
         # ========== tmp code ==========

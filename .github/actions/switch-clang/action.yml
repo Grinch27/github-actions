@@ -13,6 +13,9 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Ensure run_sudo
+      uses: Grinch27/github-actions/.github/actions/run-sudo@main
+
     - name: (Vars) Resolve suffix
       id: vars
       shell: bash
@@ -52,16 +55,16 @@ runs:
         for tool in "${tools_clang[@]}"; do
           versions=$(ls /usr/bin/${tool}-* 2>/dev/null | grep -Eo '[0-9]+$' | sort -u || true)
           for version in ${versions}; do
-            sudo update-alternatives --install /usr/bin/${tool} ${tool} /usr/bin/${tool}-${version} ${version}
+            run_sudo update-alternatives --install /usr/bin/${tool} ${tool} /usr/bin/${tool}-${version} ${version}
           done
         done
 
-        sudo update-alternatives --query clang    || true
-        sudo update-alternatives --query clang-format || true
-        sudo update-alternatives --query clang-tidy   || true
+        run_sudo update-alternatives --query clang    || true
+        run_sudo update-alternatives --query clang-format || true
+        run_sudo update-alternatives --query clang-tidy   || true
 
         for tool in "${tools_clang[@]}"; do
-          sudo update-alternatives --set ${tool} /usr/bin/${tool}-${lib_version} || true
+          run_sudo update-alternatives --set ${tool} /usr/bin/${tool}-${lib_version} || true
         done
 
     - name: (Apt) Reload
@@ -71,9 +74,9 @@ runs:
         DEBIAN_FRONTEND: noninteractive
       working-directory: /
       run: |
-        sudo -E apt-get -yqq autoremove --purge
-        sudo -E apt-get -qq clean
-        sudo -E systemctl daemon-reload
+        run_sudo_env apt-get -yqq autoremove --purge
+        run_sudo_env apt-get -qq clean
+        run_sudo_env systemctl daemon-reload
         df -Th
 
     # - name: Verify

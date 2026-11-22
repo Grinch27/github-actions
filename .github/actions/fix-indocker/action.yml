@@ -7,6 +7,9 @@ author: "Grinch27"
 runs:
   using: composite
   steps:
+    - name: Ensure run_sudo
+      uses: Grinch27/github-actions/.github/actions/run-sudo@main
+
     - name: (Apt) Install
       id: apt-install
       shell: bash
@@ -17,7 +20,6 @@ runs:
         echo -e "Current working directory: $(pwd)"
         df -Th
 
-        # Requires run-sudo to be installed earlier in this Job.
         run_sudo apt-get -yqq update
         package_installed=$(dpkg-query -W -f='${binary:Package}\n')
 

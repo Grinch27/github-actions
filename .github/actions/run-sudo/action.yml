@@ -24,10 +24,24 @@ runs:
         elif command -v sudo >/dev/null 2>&1; then
           exec sudo -n "$@"
         else
-          printf 'run_sudo: root privileges required: %s\n' "$*" >&2
+          printf 'run_sudo: root privileges required\n' >&2
           exit 1
         fi
         SCRIPT
-        chmod 0755 "${bin_dir}/run_sudo"
+        cat > "${bin_dir}/run_sudo_env" <<'SCRIPT'
+        #!/usr/bin/env bash
+        # Preserve only the CI package/locale environment formerly needed by sudo -E.
+        # Unknown: caller-specific environment outside this allowlist; verify native CI.
+        # Risk: do not pass credentials or enable shell tracing; no arbitrary env preservation.
+        set -euo pipefail
+        env_args=()
+        for name in DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN APT_LISTCHANGES_FRONTEND NEEDRESTART_MODE LANG LC_ALL TZ; do
+          if [[ -v "$name" ]]; then
+            env_args+=("${name}=${!name}")
+          fi
+        done
+        exec "${BASH_SOURCE[0]%/*}/run_sudo" env "${env_args[@]}" "$@"
+        SCRIPT
+        chmod 0755 "${bin_dir}/run_sudo" "${bin_dir}/run_sudo_env"
         "${bin_dir}/run_sudo" true
         printf '%s\n' "$bin_dir" >> "$GITHUB_PATH"
