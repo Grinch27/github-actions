@@ -25,7 +25,6 @@ runs:
 
         packages_install=(
           "sudo"
-          "systemctl"
           "python3"
           "python3-pip"
         )
@@ -55,9 +54,4 @@ runs:
         echo -e "Current working directory: $(pwd)"
         run_sudo apt-get -yqq autoremove --purge
         run_sudo apt-get -qq clean
-        if [ ! -f /.dockerenv ] && [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
-          run_sudo systemctl daemon-reload
-        else
-          echo "Skip systemctl daemon-reload when systemd is not the active init system"
-        fi
         df -Th

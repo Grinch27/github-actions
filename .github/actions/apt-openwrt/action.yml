@@ -10,21 +10,6 @@ runs:
     - name: Ensure run_sudo
       uses: Grinch27/github-actions/.github/actions/run-sudo@main
 
-    - name: Check in Docker
-      id: check-indocker
-      shell: bash
-      working-directory: /
-      run: |
-        set -euo pipefail
-
-        # 识别当前是否运行在容器内，供后续跳过 systemd 相关操作
-        echo -e "Current working directory: $(pwd)"
-        if [ -f /.dockerenv ]; then
-          echo "in_container=true" | tee -a "${GITHUB_OUTPUT}"
-        else
-          echo "in_container=false" | tee -a "${GITHUB_OUTPUT}"
-        fi
-
     - name: Apt OpenWrt
       id: apt-openwrt
       shell: bash
@@ -137,14 +122,9 @@ runs:
 
         echo -e "Current working directory: $(pwd)"
 
-        # 清理 apt 缓存，非容器且存在 systemctl 时再刷新 daemon
+        # 清理 apt 缓存
         run_sudo apt-get -yqq autoremove --purge
         run_sudo apt-get -qq clean
-        if [ "${{ steps.check-indocker.outputs.in_container }}" = 'false' ] && command -v systemctl >/dev/null 2>&1; then
-          run_sudo systemctl daemon-reload
-        else
-          echo "Skip systemctl daemon-reload inside container or when systemctl is unavailable"
-        fi
         df -Th
 
     - name: Apt Misc

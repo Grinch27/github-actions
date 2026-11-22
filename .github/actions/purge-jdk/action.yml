@@ -51,5 +51,4 @@ runs:
         # ========== reload ==========
         run_sudo_env apt-get -yqq autoremove --purge
         run_sudo_env apt-get -qq clean
-        run_sudo_env systemctl daemon-reload
         df -Th
