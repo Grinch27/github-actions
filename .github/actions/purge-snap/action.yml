@@ -7,15 +7,39 @@ author: "Grinch27"
 runs:
   using: composite
   steps:
-    - name: Ensure run_sudo
-      uses: Grinch27/github-actions/.github/actions/run-sudo@main
-
     - name: Purge Snap
       id: purge_snap
       shell: bash
       continue-on-error: true
       working-directory: /
       run: |
+        # Scope: Ubuntu/Linux jobs; keep Snap CLI and service control native-only.
+        # Assumptions: a non-root caller has passwordless sudo; container markers are present.
+        # Risk: APT maintainer scripts may invoke services independently of this guard.
+        # Verify: root/no-sudo, sudo -n, environment allowlist, and native/container branches.
+        run_sudo() {
+          if [ "$(id -u)" -eq 0 ]; then
+            "$@"
+          elif command -v sudo >/dev/null 2>&1; then
+            sudo -n "$@"
+          else
+            printf 'run_sudo: root privileges required\n' >&2
+            return 1
+          fi
+        }
+
+        run_sudo_env() {
+          local name
+          local -a env_args=()
+          for name in DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN APT_LISTCHANGES_FRONTEND NEEDRESTART_MODE LANG LC_ALL TZ; do
+            if [[ -v "$name" ]]; then
+              env_args+=("${name}=${!name}")
+            fi
+          done
+          run_sudo env "${env_args[@]}" "$@"
+        }
+
+        run_sudo true
         echo -e "Current working directory: $(pwd)"
         df -Th
 
@@ -23,12 +47,23 @@ runs:
         package_installed=$(dpkg-query -W -f='${binary:Package}\n')
 
         if command -v snap >/dev/null 2>&1; then
-          run_sudo snap list || true
-          for p in $(snap list | awk 'NR>1 {print $1}'); do
-            run_sudo snap remove "$p"
-          done
-          run_sudo systemctl stop snapd || true
-          run_sudo systemctl disable --now snapd.socket || true
+          if [ ! -f /.dockerenv ] &&
+             [ ! -f /run/.containerenv ] &&
+             [ -d /run/systemd/system ] &&
+             command -v systemctl >/dev/null 2>&1; then
+            if snap_list=$(run_sudo snap list); then
+              printf '%s\n' "$snap_list"
+              while IFS= read -r p; do
+                run_sudo snap remove "$p"
+              done < <(printf '%s\n' "$snap_list" | awk 'NR>1 {print $1}')
+            else
+              echo "Unable to list installed snaps; continue with snapd cleanup" >&2
+            fi
+            run_sudo systemctl disable --now snapd.socket || true
+            run_sudo systemctl stop snapd.service || true
+          else
+            echo "Skip Snap service management outside native systemd environment"
+          fi
           run_sudo apt-get -yqq autoremove --purge snapd || true
         fi
 
@@ -46,5 +81,4 @@ runs:
 
         run_sudo_env apt-get -yqq autoremove --purge
         run_sudo_env apt-get -qq clean
-        run_sudo_env systemctl daemon-reload
         df -Th
