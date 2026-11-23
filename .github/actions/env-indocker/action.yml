@@ -29,17 +29,16 @@ runs:
       uses: Grinch27/github-actions/.github/actions/input-custom@main
       with:
         phase: load
-    - name: (Apt) Docker Needed for Actions
-      id: fix-docker
-      if: ${{ steps.detect-environment.outputs.environment_kind == 'container' }}
-      uses: Grinch27/github-actions/.github/actions/fix-indocker@main
     - name: (Apt) install packages - OpenWrt
       id: apt-openwrt
       uses: Grinch27/github-actions/.github/actions/apt-openwrt@main
+      with:
+        prepare_container: ${{ steps.detect-environment.outputs.environment_kind == 'container' }}
     - name: (Env) Environment for Toolchain
       id: env-toolchain
       uses: Grinch27/github-actions/.github/actions/env-toolchain@main
       with:
+        apt_index_ready: "true"
         gcc_purge: ${{ env.gcc_purge }}
         gcc_install: ${{ env.gcc_install }}
         gcc_switch: ${{ env.gcc_switch }}

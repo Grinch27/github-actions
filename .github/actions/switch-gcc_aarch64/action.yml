@@ -1,7 +1,8 @@
 name: Switch GCC AArch64
-
+# Scope: retain the requested compiler version and existing alternatives.
+# Risk: compiler package availability follows the active Ubuntu repositories.
+# Verify: explicit and default GCC packages with an independent or shared index.
 description: Switch GCC AArch64
-
 author: "Grinch27"
 
 inputs:
@@ -9,72 +10,25 @@ inputs:
     description: "Version"
     required: false
     default: ""
+  apt_index_ready:
+    description: Use the APT index refreshed earlier in this job.
+    required: false
+    default: "false"
 
 runs:
   using: composite
   steps:
-    - name: (Vars) Resolve suffix
-      id: vars
-      shell: bash
-      env:
-        DEBIAN_FRONTEND: noninteractive
-        gcc_version: ${{ inputs.gcc_version }}
-      working-directory: /
-      run: |
-        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
-        # Assumption: id is present; non-root requires non-interactive sudo.
-        # Risk: container capabilities are not granted by this wrapper.
-        # Verify: arguments, command exit status, and continued Step execution.
-        run_sudo() {
-          if [ "$(id -u)" -eq 0 ]; then
-            "$@"
-          elif command -v sudo >/dev/null 2>&1; then
-            sudo -n "$@"
-          else
-            printf 'run_sudo: root privileges required\n' >&2
-            return 1
-          fi
-        }
-
-        run_sudo_env() {
-          local name
-          local -a env_args=()
-          for name in DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN APT_LISTCHANGES_FRONTEND NEEDRESTART_MODE LANG LC_ALL TZ; do
-            if [[ -v "$name" ]]; then
-              env_args+=("${name}=${!name}")
-            fi
-          done
-          run_sudo env "${env_args[@]}" "$@"
-        }
-
-        echo -e "Current working directory: $(pwd)"
-        df -Th
-        run_sudo_env apt-get -yqq update
-        package_installed=$(dpkg-query -W -f='${binary:Package}\n')
-
-        if [ -n "${{ env.gcc_version }}" ]; then
-          pkg_suffix="-${{ env.gcc_version }}"
-          lib_version="${{ env.gcc_version }}"
-        else
-          pkg_suffix=""
-          lib_version=""
-        fi
-        echo "pkg_suffix=$pkg_suffix" >> "$GITHUB_OUTPUT"
-        echo "lib_version=$lib_version" >> "$GITHUB_OUTPUT"
-
-    - name: Install GCC AArch64
+    - name: Install and select GCC AArch64
       id: install-gcc-aarch64
       shell: bash
       env:
         DEBIAN_FRONTEND: noninteractive
-        pkg_suffix: ${{ steps.vars.outputs.pkg_suffix }}
-        lib_version: ${{ steps.vars.outputs.lib_version }}
+        APT_INDEX_READY: ${{ inputs.apt_index_ready }}
+        GCC_VERSION: ${{ inputs.gcc_version }}
       working-directory: /
       run: |
-        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
-        # Assumption: id is present; non-root requires non-interactive sudo.
-        # Risk: container capabilities are not granted by this wrapper.
-        # Verify: arguments, command exit status, and continued Step execution.
+        set -euo pipefail
+
         run_sudo() {
           if [ "$(id -u)" -eq 0 ]; then
             "$@"
@@ -97,115 +51,26 @@ runs:
           run_sudo env "${env_args[@]}" "$@"
         }
 
-        echo -e "Current working directory: $(pwd)"
-        df -Th
-        run_sudo_env apt-get -yqq update
-        package_installed=$(dpkg-query -W -f='${binary:Package}\n')
+        if [[ "$APT_INDEX_READY" != true ]]; then
+          run_sudo_env apt-get -yqq update
+        fi
+        suffix=${GCC_VERSION:+-${GCC_VERSION}}
+        run_sudo_env apt-get -yqq install "gcc${suffix}-aarch64-linux-gnu" "cpp${suffix}-aarch64-linux-gnu"
 
-        packages_install=(
-          "gcc${{ env.pkg_suffix }}-aarch64-linux-gnu"
-          "cpp${{ env.pkg_suffix }}-aarch64-linux-gnu"
-        )
-        run_sudo_env apt-get -yqq install "${packages_install[@]}"
-
-    - name: Configure alternatives
-      id: alternatives
-      # if: ${{ steps.install-gcc-aarch64.outcome == 'success' }}
-      if: ${{ inputs.gcc_version != '' }}
-      shell: bash
-      env:
-        DEBIAN_FRONTEND: noninteractive
-        pkg_suffix: ${{ steps.vars.outputs.pkg_suffix }}
-        lib_version: ${{ steps.vars.outputs.lib_version }}
-      working-directory: /
-      run: |
-        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
-        # Assumption: id is present; non-root requires non-interactive sudo.
-        # Risk: container capabilities are not granted by this wrapper.
-        # Verify: arguments, command exit status, and continued Step execution.
-        run_sudo() {
-          if [ "$(id -u)" -eq 0 ]; then
-            "$@"
-          elif command -v sudo >/dev/null 2>&1; then
-            sudo -n "$@"
-          else
-            printf 'run_sudo: root privileges required\n' >&2
-            return 1
-          fi
-        }
-
-        # AArch64专用设置，涵盖所有带版本号的aarch64-linux-gnu工具
-        ls /usr/bin/aarch64-linux-gnu-*
-        tools_aarch64=(
-          "aarch64-linux-gnu-gcc"
-          "aarch64-linux-gnu-cpp"
-          "aarch64-linux-gnu-gcc-ar"
-          "aarch64-linux-gnu-gcc-nm"
-          "aarch64-linux-gnu-gcc-ranlib"
-          "aarch64-linux-gnu-gcov"
-          "aarch64-linux-gnu-gcov-dump"
-          "aarch64-linux-gnu-gcov-tool"
-          "aarch64-linux-gnu-lto-dump"
-        )
-        for tool in "${tools_aarch64[@]}"; do
-          versions=$(ls /usr/bin/${tool}-* 2>/dev/null | grep -Eo '[0-9]+$' | sort -u)
-          for version in ${versions}; do
-            run_sudo update-alternatives --install /usr/bin/${tool} ${tool} /usr/bin/${tool}-${version} ${version}
+        if [[ -n "$GCC_VERSION" ]]; then
+          tools=(aarch64-linux-gnu-{gcc,cpp,gcc-ar,gcc-nm,gcc-ranlib,gcov,gcov-dump,gcov-tool,lto-dump})
+          for tool in "${tools[@]}"; do
+            for compiler in "/usr/bin/${tool}-"*; do
+              version=${compiler#"/usr/bin/${tool}-"}
+              [[ "$version" =~ ^[0-9]+$ ]] || continue
+              run_sudo update-alternatives --install "/usr/bin/$tool" "$tool" "$compiler" "$version"
+            done
           done
-        done
-        run_sudo update-alternatives --query aarch64-linux-gnu-gcc
-        # 切换到所需版本
-        for tool in "${tools_aarch64[@]}"; do
-          run_sudo update-alternatives --set ${tool} /usr/bin/${tool}-${{ env.lib_version }}
-        done
-
-    - name: (Apt) Reload
-      id: apt-reload
-      shell: bash
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      working-directory: /
-      run: |
-        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
-        # Assumption: id is present; non-root requires non-interactive sudo.
-        # Risk: container capabilities are not granted by this wrapper.
-        # Verify: arguments, command exit status, and continued Step execution.
-        run_sudo() {
-          if [ "$(id -u)" -eq 0 ]; then
-            "$@"
-          elif command -v sudo >/dev/null 2>&1; then
-            sudo -n "$@"
-          else
-            printf 'run_sudo: root privileges required\n' >&2
-            return 1
-          fi
-        }
-
-        run_sudo_env() {
-          local name
-          local -a env_args=()
-          for name in DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN APT_LISTCHANGES_FRONTEND NEEDRESTART_MODE LANG LC_ALL TZ; do
-            if [[ -v "$name" ]]; then
-              env_args+=("${name}=${!name}")
-            fi
+          for tool in "${tools[@]}"; do
+            run_sudo update-alternatives --set "$tool" "/usr/bin/${tool}-${GCC_VERSION}"
           done
-          run_sudo env "${env_args[@]}" "$@"
-        }
+        fi
 
-        echo -e "Current working directory: $(pwd)"
         run_sudo_env apt-get -yqq autoremove --purge
         run_sudo_env apt-get -qq clean
-        df -Th
-
-    - name: Verify
-      id: verify
-      shell: bash
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      working-directory: /
-      run: |
-        echo -e "Current working directory: $(pwd)"
-        df -Th
-        # 验证版本
         aarch64-linux-gnu-gcc --version
-        echo "Switched to AArch64 GCC version: ${{ env.gcc_version }}"

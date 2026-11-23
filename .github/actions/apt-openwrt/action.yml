@@ -1,25 +1,29 @@
 name: Apt OpenWrt
-
-description: Apt OpenWrt
-
+# Scope: prepare OpenWrt and U-Boot build dependencies on Ubuntu.
+# Risk: optional package names can change with the runner or container release.
+# Verify: batch resolution on both Ubuntu routes and failure propagation.
+description: Install OpenWrt build dependencies
 author: "Grinch27"
+
+inputs:
+  prepare_container:
+    description: Install sudo and provide the python alias for a build container.
+    required: false
+    default: "false"
 
 runs:
   using: composite
   steps:
-    - name: Apt OpenWrt
+    - name: Install OpenWrt build dependencies
       id: apt-openwrt
       shell: bash
       env:
         DEBIAN_FRONTEND: noninteractive
+        PREPARE_CONTAINER: ${{ inputs.prepare_container }}
       working-directory: /
       run: |
         set -euo pipefail
 
-        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
-        # Assumption: id is present; non-root requires non-interactive sudo.
-        # Risk: container capabilities are not granted by this wrapper.
-        # Verify: arguments, command exit status, and continued Step execution.
         run_sudo() {
           if [ "$(id -u)" -eq 0 ]; then
             "$@"
@@ -31,217 +35,49 @@ runs:
           fi
         }
 
-        echo -e "Current working directory: $(pwd)"
-        df -Th
-
-        # 统一 root 执行入口，兼容容器内无 sudo 的场景
-        run_sudo apt-get -yqq update
-
-        packages_install=(
-          "ack"
-          "antlr3"
-          "asciidoc"
-          "autoconf"
-          "automake"
-          "autopoint"
-          "bc"
-          "binutils"
-          "bison"
-          "build-essential"
-          "bzip2"
-          "ca-certificates"
-          "clang"
-          "clangd"
-          "cmake"
-          "cpio"
-          "curl"
-          "device-tree-compiler"
-          "dwarves"
-          "ecj"
-          "fastjar"
-          "flex"
-          "gawk"
-          "g++"
-          "gcc"
-          # "gcc-aarch64-linux-gnu"
-          "git"
-          "git-lfs"
-          "gnupg"
-          "gperf"
-          "haveged"
-          "help2man"
-          "intltool"
-          "jq"
-          "libelf-dev"
-          "libglib2.0-dev"
-          "libgmp3-dev"
-          "libltdl-dev"
-          "libmpc-dev"
-          "libmpfr-dev"
-          "libncurses5-dev"
-          "libreadline-dev"
-          "libssl-dev"
-          "libtool"
-          "libxml2"
-          "libxml2-utils"
-          "lld"
-          "lldb"
-          "lz4"
-          "lzop"
-          "make"
-          "mkisofs"
-          "ninja-build"
-          "p7zip-full"
-          "patch"
-          "pkgconf"
-          "python3"
-          "python3-pip"
-          "python3-setuptools"
-          "python3-pysocks"
-          "python3-unidecode"
-          "re2c"
-          "rsync"
-          "schedtool"
-          "scons"
-          "squashfs-tools"
-          "subversion"
-          "swig"
-          "uglifyjs"
-          "unzip"
-          "vim"
-          "wget"
-          "xsltproc"
-          "zip"
-          "zlib1g-dev"
+        required_packages=(
+          bc binutils bison build-essential bzip2 ca-certificates curl file flex gawk gcc g++
+          genisoimage git libelf-dev libncurses-dev libssl-dev make patch perl pkgconf python3 rsync
+          tar unzip wget xz-utils zlib1g-dev
+        )
+        optional_packages=(
+          7zip ack antlr3 asciidoc autoconf automake autopoint clang clangd cmake cpio
+          device-tree-compiler dwarves ecj fastjar git-lfs gnupg gperf
+          haveged help2man intltool jq libglib2.0-dev libgmp-dev libltdl-dev
+          libmpc-dev libmpfr-dev libreadline-dev libtool libxml2 libxml2-utils
+          lld lldb lz4 lzop ninja-build python3-pip
+          python3-setuptools python3-socks python3-unidecode re2c schedtool scons
+          squashfs-tools subversion swig uglifyjs vim xsltproc zip
         )
 
-        # 逐包安装，单个包缺失时不中断整个 OpenWrt 依赖准备
-        set +e
-        for pkg in "${packages_install[@]}"; do
-          run_sudo apt-get -yqq install "$pkg" || echo "Skip missing package: $pkg"
-        done
-        set -e
+        if [[ "$PREPARE_CONTAINER" == true ]]; then
+          required_packages+=(sudo)
+        fi
 
-    - name: (Apt) Reload
-      id: apt-reload
-      if: always()
-      shell: bash
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      working-directory: /
-      run: |
-        set -euo pipefail
+        run_sudo apt-get -yqq --error-on=any update
+        candidates=$(LC_ALL=C apt-cache policy "${optional_packages[@]}" |
+          awk -v requested="${optional_packages[*]}" '
+            /^[^[:space:]]+:/ { package = $1; sub(/:$/, "", package) }
+            $1 == "Candidate:" && $2 != "(none)" { available[package] = 1 }
+            END {
+              count = split(requested, packages)
+              for (i = 1; i <= count; i++) {
+                package = packages[i]
+                if (package in available)
+                  printf "%s ", package
+                else
+                  printf "No APT candidate for %s\n", package > "/dev/stderr"
+              }
+            }')
+        read -r -a available_packages <<< "$candidates"
 
-        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
-        # Assumption: id is present; non-root requires non-interactive sudo.
-        # Risk: container capabilities are not granted by this wrapper.
-        # Verify: arguments, command exit status, and continued Step execution.
-        run_sudo() {
-          if [ "$(id -u)" -eq 0 ]; then
-            "$@"
-          elif command -v sudo >/dev/null 2>&1; then
-            sudo -n "$@"
-          else
-            printf 'run_sudo: root privileges required\n' >&2
-            return 1
-          fi
-        }
+        # A missing optional candidate is skipped. APT transaction errors stop the build.
+        run_sudo env "DEBIAN_FRONTEND=$DEBIAN_FRONTEND" apt-get -yqq install \
+          "${required_packages[@]}" "${available_packages[@]}"
 
-        echo -e "Current working directory: $(pwd)"
+        if [[ "$PREPARE_CONTAINER" == true ]]; then
+          run_sudo ln -sf /usr/bin/python3 /usr/bin/python
+        fi
 
-        # 清理 apt 缓存
-        run_sudo apt-get -yqq autoremove --purge
+        run_sudo env "DEBIAN_FRONTEND=$DEBIAN_FRONTEND" apt-get -yqq autoremove --purge
         run_sudo apt-get -qq clean
-        df -Th
-
-    - name: Apt Misc
-      id: apt-misc
-      if: ${{ 'true' == 'false' }} # disable
-      shell: bash
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      working-directory: /
-      run: |
-        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
-        # Assumption: id is present; non-root requires non-interactive sudo.
-        # Risk: container capabilities are not granted by this wrapper.
-        # Verify: arguments, command exit status, and continued Step execution.
-        run_sudo() {
-          if [ "$(id -u)" -eq 0 ]; then
-            "$@"
-          elif command -v sudo >/dev/null 2>&1; then
-            sudo -n "$@"
-          else
-            printf 'run_sudo: root privileges required\n' >&2
-            return 1
-          fi
-        }
-
-        run_sudo_env() {
-          local name
-          local -a env_args=()
-          for name in DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN APT_LISTCHANGES_FRONTEND NEEDRESTART_MODE LANG LC_ALL TZ; do
-            if [[ -v "$name" ]]; then
-              env_args+=("${name}=${!name}")
-            fi
-          done
-          run_sudo env "${env_args[@]}" "$@"
-        }
-
-        echo -e "Current working directory: $(pwd)"
-        df -Th
-
-        run_sudo_env apt-get -yqq update
-        package_installed=$(dpkg-query -W -f='${binary:Package}\n')
-
-        # ========== tmp code ==========
-        # Commented out packages (sorted):
-        # "ccache"
-        # "lib32gcc-s1"
-        # "libc6-dev-i386"
-        # "libdb++-dev"
-        # "gcc-multilib"
-        # "g++-multilib"
-        # "libncursesw5"
-        # "libncursesw5-dev"
-        # "lrzsz"
-        # "msmtp"
-        # "nano"
-        # "p7zip"
-        # "python3-docutils"
-        # "python3-ply"
-        # "qemu-utils"
-        # "texinfo"
-        # "xmlto"
-        # "xxd"
-        # packages_slim=(
-        #   "bc"
-        #   "bison"
-        #   "build-essential"
-        #   "ca-certificates"
-        #   "curl"
-        #   "flex"
-        #   # "g++"
-        #   # "gcc"
-        #   # "gcc-aarch64-linux-gnu"
-        #   "git"
-        #   "git-lfs"
-        #   "gnupg"
-        #   "gperf"
-        #   "libelf-dev"
-        #   "lz4"
-        #   "libssl-dev"
-        #   "libxml2"
-        #   "libxml2-utils"
-        #   "lzop"
-        #   "make"
-        #   "python3"
-        #   "rsync"
-        #   "schedtool"
-        #   "squashfs-tools"
-        #   "vim"
-        #   "xsltproc"
-        #   "zip"
-        #   "zlib1g-dev"
-        # )
-        # sudo -E apt-get -yqq install "${packages_slim[@]}"

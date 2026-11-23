@@ -1,6 +1,13 @@
 name: Resolve Toolchain Versions
+# Verify version selection from fresh and caller-provided Ubuntu APT indexes.
 description: Resolve latest installable GCC, Clang, and OpenJDK major versions from the current apt environment
 author: "Grinch27"
+
+inputs:
+  apt_index_ready:
+    description: Use the APT index refreshed earlier in this job.
+    required: false
+    default: "false"
 
 outputs:
   gcc_version:
@@ -19,8 +26,10 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Ensure resolver runtime
+    - name: Prepare resolver runtime and APT index
       shell: bash
+      env:
+        APT_INDEX_READY: ${{ inputs.apt_index_ready }}
       run: |
         set -euo pipefail
 
@@ -66,57 +75,26 @@ runs:
           packages+=(ca-certificates)
         fi
 
-        if [ "${#packages[@]}" -eq 0 ]; then
-          echo "Resolver runtime already present."
-          exit 0
-        fi
-
-        apt_cmd=(run_sudo_env apt-get)
-
         export DEBIAN_FRONTEND="${DEBIAN_FRONTEND:-noninteractive}"
-        "${apt_cmd[@]}" update
-        "${apt_cmd[@]}" install -y --no-install-recommends "${packages[@]}"
-        run_sudo update-ca-certificates
+        if [[ "$APT_INDEX_READY" != true ]]; then
+          run_sudo_env apt-get -yqq update
+        fi
+        if (( ${#packages[@]} )); then
+          run_sudo_env apt-get install -y --no-install-recommends "${packages[@]}"
+          run_sudo update-ca-certificates
+        fi
 
     - name: Resolve toolchain versions
       id: resolve
       shell: bash
+      env:
+        LC_ALL: C
       run: |
         set -euo pipefail
-
-        # Scope: Bash Step-local privilege wrapper; no cross-Step function dependency.
-        # Assumption: id is present; non-root requires non-interactive sudo.
-        # Risk: container capabilities are not granted by this wrapper.
-        # Verify: arguments, command exit status, and continued Step execution.
-        run_sudo() {
-          if [ "$(id -u)" -eq 0 ]; then
-            "$@"
-          elif command -v sudo >/dev/null 2>&1; then
-            sudo -n "$@"
-          else
-            printf 'run_sudo: root privileges required\n' >&2
-            return 1
-          fi
-        }
-
-        run_sudo_env() {
-          local name
-          local -a env_args=()
-          for name in DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN APT_LISTCHANGES_FRONTEND NEEDRESTART_MODE LANG LC_ALL TZ; do
-            if [[ -v "$name" ]]; then
-              env_args+=("${name}=${!name}")
-            fi
-          done
-          run_sudo env "${env_args[@]}" "$@"
-        }
-
-        # Python launches Bash explicitly; export is limited to this Step.
-        export -f run_sudo run_sudo_env
 
         python3 <<'PY'
         import os
         import re
-        import shutil
         import subprocess
         import sys
 
@@ -124,17 +102,8 @@ runs:
             print(f"::error::{message}", file=sys.stderr)
             raise SystemExit(1)
 
-        def need(command):
-            if not shutil.which(command):
-                fail(f"{command} is required.")
-
         def run(args):
             return subprocess.run(args, check=True, text=True, capture_output=True).stdout
-
-        def apt_update():
-            command = ["bash", "-c", 'run_sudo_env "$@"', "run_sudo_env",
-                       "apt-get", "-yqq", "update"]
-            subprocess.run(command, check=True)
 
         def has_candidate(package):
             output = run(["apt-cache", "policy", package])
@@ -157,11 +126,6 @@ runs:
                     return str(version)
 
             fail(f"No installable package candidate found for pattern: {pattern}")
-
-        for command in ("apt-get", "apt-cache"):
-            need(command)
-
-        apt_update()
 
         gcc_version = latest(
             r"^gcc-[0-9]+$",

@@ -26,6 +26,10 @@ author: "Grinch27"
 # qemu_install: false
 
 inputs:
+  apt_index_ready:
+    description: Use the APT index refreshed earlier in this job.
+    required: false
+    default: "false"
   # ----- gcc -----
   gcc_purge:
     description: "gcc_purge"
@@ -125,6 +129,8 @@ runs:
     - name: (Resolve) Toolchain Versions
       id: resolve-toolchain
       uses: Grinch27/github-actions/.github/actions/resolve-toolchain-version@main
+      with:
+        apt_index_ready: ${{ inputs.apt_index_ready }}
 
     - name: (Resolve) Effective Toolchain Versions
       id: toolchain
@@ -200,6 +206,7 @@ runs:
       uses: Grinch27/github-actions/.github/actions/switch-gcc_aarch64@main
       with:
         gcc_version: ${{ steps.toolchain.outputs.gcc_version }}
+        apt_index_ready: ${{ inputs.apt_index_ready }}
 
     - name: (Purge) JDK
       id: purge-jdk
